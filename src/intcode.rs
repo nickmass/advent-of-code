@@ -88,6 +88,7 @@ impl Machine {
         self.int_output = false;
         self.input = None;
         self.output = None;
+        self.relative_base = 0;
 
         if self.debug {
             println!("Reset");
