@@ -2,15 +2,15 @@ use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 enum Operand {
-    Immediate(i128),
-    Address(i128),
-    Relative(i128),
+    Immediate(i64),
+    Address(i64),
+    Relative(i64),
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum Interrupt {
     Input,
-    Output(i128),
+    Output(i64),
     Halt,
 }
 
@@ -29,17 +29,17 @@ enum Instruction {
 }
 
 pub struct Machine {
-    static_mem: Vec<i128>,
-    mem: Vec<Option<i128>>,
+    static_mem: Vec<i64>,
+    mem: Vec<Option<i64>>,
     program_counter: usize,
-    input: Option<i128>,
-    output: Option<i128>,
+    input: Option<i64>,
+    output: Option<i64>,
     debug: bool,
     int_halt: bool,
     int_input: bool,
     int_output: bool,
     instruction: Instruction,
-    relative_base: i128,
+    relative_base: i64,
 }
 
 impl Machine {
@@ -48,7 +48,7 @@ impl Machine {
         let mem: Vec<_> = program
             .split(',')
             .map(str::trim)
-            .map(i128::from_str)
+            .map(i64::from_str)
             .filter_map(Result::ok)
             .collect();
 
@@ -77,6 +77,7 @@ impl Machine {
     }
 
     pub fn reset(&mut self) {
+        self.mem.resize(self.static_mem.len(), None);
         for i in 0..self.mem.len() {
             self.mem[i] = None;
         }
@@ -93,7 +94,7 @@ impl Machine {
         }
     }
 
-    fn decode_operand(&mut self, address_mode: i128) -> Operand {
+    fn decode_operand(&mut self, address_mode: i64) -> Operand {
         match address_mode {
             0 => Operand::Address(self.read_pc()),
             1 => Operand::Immediate(self.read_pc()),
@@ -272,28 +273,27 @@ impl Machine {
                 println!("Resized mem from {} to {}", self.mem.len(), addr + 1);
             }
             self.mem.resize(addr + 1, Some(0));
-            self.static_mem.resize(addr + 1, 0);
         }
     }
 
-    pub fn poke(&mut self, addr: usize, value: i128) {
+    pub fn poke(&mut self, addr: usize, value: i64) {
         self.resize_to_fit(addr);
         self.mem[addr] = Some(value);
     }
 
-    pub fn peek(&mut self, addr: usize) -> i128 {
+    pub fn peek(&mut self, addr: usize) -> i64 {
         self.resize_to_fit(addr);
         self.mem[addr].unwrap_or_else(|| self.static_mem[addr])
     }
 
-    pub fn set_input(&mut self, value: i128) {
+    pub fn set_input(&mut self, value: i64) {
         if self.debug {
             println!("Input: {}", value);
         }
         self.input = Some(value);
     }
 
-    fn read(&mut self, operand: Operand) -> i128 {
+    fn read(&mut self, operand: Operand) -> i64 {
         match operand {
             Operand::Immediate(val) => val,
             Operand::Address(addr) => self.peek(addr as usize),
@@ -301,7 +301,7 @@ impl Machine {
         }
     }
 
-    fn write(&mut self, operand: Operand, value: i128) {
+    fn write(&mut self, operand: Operand, value: i64) {
         match operand {
             Operand::Immediate(_) => (),
             Operand::Address(addr) => self.poke(addr as usize, value),
@@ -309,7 +309,7 @@ impl Machine {
         }
     }
 
-    fn read_pc(&mut self) -> i128 {
+    fn read_pc(&mut self) -> i64 {
         let result = self.peek(self.program_counter);
         self.program_counter += 1;
 
