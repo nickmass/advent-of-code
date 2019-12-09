@@ -1,4 +1,107 @@
 #[derive(Debug, Clone)]
+pub enum Line {
+    EastWest(Segment),
+    NorthSouth(Segment),
+}
+
+#[derive(Debug, Clone)]
+pub struct Segment {
+    start: Point,
+    end: Point,
+}
+
+impl Line {
+    pub fn crosses(&self, other: &Self) -> Option<Point> {
+        match (self, other) {
+            (Line::EastWest(ew), Line::NorthSouth(ns))
+            | (Line::NorthSouth(ns), Line::EastWest(ew)) => {
+                if ew.start.y >= ns.start.y
+                    && ew.start.y <= ns.end.y
+                    && ns.start.x >= ew.start.x
+                    && ns.start.x <= ew.end.x
+                {
+                    Some(Point {
+                        x: ns.start.x,
+                        y: ew.start.y,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn new(location: &mut Point, movement: Movement) -> Self {
+        let old_location = location.clone();
+        match movement {
+            Movement::Left(offset) => {
+                location.x -= offset;
+                Line::EastWest(Segment {
+                    start: location.clone(),
+                    end: old_location,
+                })
+            }
+            Movement::Right(offset) => {
+                location.x += offset;
+                Line::EastWest(Segment {
+                    start: old_location,
+                    end: location.clone(),
+                })
+            }
+            Movement::Up(offset) => {
+                location.y += offset;
+                Line::NorthSouth(Segment {
+                    start: old_location,
+                    end: location.clone(),
+                })
+            }
+            Movement::Down(offset) => {
+                location.y -= offset;
+                Line::NorthSouth(Segment {
+                    start: location.clone(),
+                    end: old_location,
+                })
+            }
+        }
+    }
+
+    pub fn length(&self) -> i32 {
+        match self {
+            Line::EastWest(segment) => segment.end.x - segment.start.x,
+            Line::NorthSouth(segment) => segment.end.y - segment.start.y,
+        }
+    }
+}
+
+pub struct LineIter<I: Iterator<Item = Movement>> {
+    moves: I,
+    location: Point,
+}
+
+impl<I: Iterator<Item = Movement>> LineIter<I> {
+    pub fn new(moves: I) -> Self {
+        LineIter {
+            moves,
+            location: Point { x: 0, y: 0 },
+        }
+    }
+}
+
+impl<I: Iterator<Item = Movement>> Iterator for LineIter<I> {
+    type Item = (Point, Line);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(movement) = self.moves.next() {
+            let start = self.location.clone();
+            Some((start, Line::new(&mut self.location, movement)))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Movement {
     Left(i32),
     Right(i32),
@@ -37,91 +140,11 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn move_iter<I: Iterator<Item = Movement>>(input: I) -> PointIterator<I> {
-        PointIterator {
-            inner: input,
-            item: None,
-            counter: 0,
-            point: Point { x: 0, y: 0 },
-        }
-    }
-
     pub fn distance(&self) -> i32 {
         self.x.abs() + self.y.abs()
     }
-}
 
-pub struct PointIterator<I: Iterator<Item = Movement>> {
-    inner: I,
-    item: Option<Movement>,
-    counter: i32,
-    point: Point,
-}
-
-impl<I: Iterator<Item = Movement>> PointIterator<I> {
-    pub fn stepped(self) -> impl Iterator<Item = SteppedPoint> {
-        self.enumerate().map(|(steps, inner)| SteppedPoint {
-            inner,
-            steps: steps + 1,
-        })
+    pub fn distance_to(&self, other: &Point) -> i32 {
+        (self.x - other.x).abs() + (self.y - other.y).abs()
     }
 }
-
-impl<I: Iterator<Item = Movement>> Iterator for PointIterator<I> {
-    type Item = Point;
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = self.item.take().or_else(|| self.inner.next());
-
-        if let Some(item) = item {
-            self.counter += 1;
-            let offset = match item {
-                Movement::Left(offset) => {
-                    self.point.x -= 1;
-                    offset
-                }
-                Movement::Right(offset) => {
-                    self.point.x += 1;
-                    offset
-                }
-                Movement::Up(offset) => {
-                    self.point.y -= 1;
-                    offset
-                }
-                Movement::Down(offset) => {
-                    self.point.y += 1;
-                    offset
-                }
-            };
-
-            if offset == self.counter {
-                self.item = None;
-                self.counter = 0;
-            } else {
-                self.item = Some(item);
-            }
-
-            Some(self.point.clone())
-        } else {
-            None
-        }
-    }
-}
-
-pub struct SteppedPoint {
-    inner: Point,
-    pub steps: usize,
-}
-
-impl std::hash::Hash for SteppedPoint {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.inner.hash(state);
-    }
-}
-
-impl std::cmp::PartialEq for SteppedPoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
-    }
-}
-
-impl std::cmp::Eq for SteppedPoint {}

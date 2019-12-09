@@ -2,14 +2,15 @@ use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 enum Operand {
-    Immediate(i32),
-    Address(i32),
+    Immediate(i128),
+    Address(i128),
+    Relative(i128),
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum Interrupt {
     Input,
-    Output(i32),
+    Output(i128),
     Halt,
 }
 
@@ -23,20 +24,22 @@ enum Instruction {
     JmpFalse(Operand, Operand),
     LessThan(Operand, Operand, Operand),
     Equal(Operand, Operand, Operand),
+    AdjustRelativeBase(Operand),
     Halt,
 }
 
 pub struct Machine {
-    static_mem: Box<[i32]>,
-    mem: Box<[Option<i32>]>,
+    static_mem: Vec<i128>,
+    mem: Vec<Option<i128>>,
     program_counter: usize,
-    input: Option<i32>,
-    output: Option<i32>,
+    input: Option<i128>,
+    output: Option<i128>,
     debug: bool,
     int_halt: bool,
     int_input: bool,
     int_output: bool,
     instruction: Instruction,
+    relative_base: i128,
 }
 
 impl Machine {
@@ -45,15 +48,15 @@ impl Machine {
         let mem: Vec<_> = program
             .split(',')
             .map(str::trim)
-            .map(i32::from_str)
+            .map(i128::from_str)
             .filter_map(Result::ok)
             .collect();
 
         let working_mem = vec![None; mem.len()];
 
         Machine {
-            static_mem: mem.into_boxed_slice(),
-            mem: working_mem.into_boxed_slice(),
+            static_mem: mem,
+            mem: working_mem,
             program_counter: 0,
             input: None,
             output: None,
@@ -62,6 +65,7 @@ impl Machine {
             int_input: false,
             int_output: false,
             instruction: Instruction::Halt,
+            relative_base: 0,
         }
     }
 
@@ -89,20 +93,21 @@ impl Machine {
         }
     }
 
-    fn decode_operand(&mut self, immediate_mode: bool) -> Operand {
-        if immediate_mode {
-            Operand::Immediate(self.read_pc())
-        } else {
-            Operand::Address(self.read_pc())
+    fn decode_operand(&mut self, address_mode: i128) -> Operand {
+        match address_mode {
+            0 => Operand::Address(self.read_pc()),
+            1 => Operand::Immediate(self.read_pc()),
+            2 => Operand::Relative(self.read_pc()),
+            _ => unreachable!("Unknown address mode: {}", address_mode),
         }
     }
 
     fn decode(&mut self) -> Instruction {
         let instruction = self.read_pc();
         let op = instruction % 100;
-        let param_one_mode = (instruction / 100 % 10) != 0;
-        let param_two_mode = (instruction / 1000 % 10) != 0;
-        let param_three_mode = (instruction / 10000 % 10) != 0;
+        let param_one_mode = instruction / 100 % 10;
+        let param_two_mode = instruction / 1000 % 10;
+        let param_three_mode = instruction / 10000 % 10;
 
         match op {
             1 => {
@@ -149,11 +154,15 @@ impl Machine {
                 let op_three = self.decode_operand(param_three_mode);
                 Instruction::Equal(op_one, op_two, op_three)
             }
+            9 => {
+                let op_one = self.decode_operand(param_one_mode);
+                Instruction::AdjustRelativeBase(op_one)
+            }
             99 => {
                 self.int_halt = true;
                 Instruction::Halt
             }
-            _ => unreachable!(),
+            _ => unreachable!("Unknown opcode: {}", op),
         }
     }
 
@@ -206,6 +215,10 @@ impl Machine {
                 let value = if left == right { 1 } else { 0 };
                 self.write(c, value);
             }
+            Instruction::AdjustRelativeBase(a) => {
+                let val = self.read(a);
+                self.relative_base += val;
+            }
             Instruction::Halt => {
                 if self.debug {
                     println!("Halt")
@@ -233,7 +246,7 @@ impl Machine {
             }
             Interrupt::Output(self.output.take().unwrap_or(0))
         } else {
-            unreachable!();
+            unreachable!("Unmatched interrupt");
         }
     }
 
@@ -253,36 +266,50 @@ impl Machine {
         self.execute(self.instruction);
     }
 
-    pub fn poke(&mut self, addr: usize, value: i32) {
+    pub fn resize_to_fit(&mut self, addr: usize) {
+        if addr >= self.mem.len() {
+            if self.debug {
+                println!("Resized mem from {} to {}", self.mem.len(), addr + 1);
+            }
+            self.mem.resize(addr + 1, Some(0));
+            self.static_mem.resize(addr + 1, 0);
+        }
+    }
+
+    pub fn poke(&mut self, addr: usize, value: i128) {
+        self.resize_to_fit(addr);
         self.mem[addr] = Some(value);
     }
 
-    pub fn peek(&self, addr: usize) -> i32 {
+    pub fn peek(&mut self, addr: usize) -> i128 {
+        self.resize_to_fit(addr);
         self.mem[addr].unwrap_or_else(|| self.static_mem[addr])
     }
 
-    pub fn set_input(&mut self, value: i32) {
+    pub fn set_input(&mut self, value: i128) {
         if self.debug {
             println!("Input: {}", value);
         }
         self.input = Some(value);
     }
 
-    fn read(&self, operand: Operand) -> i32 {
+    fn read(&mut self, operand: Operand) -> i128 {
         match operand {
             Operand::Immediate(val) => val,
             Operand::Address(addr) => self.peek(addr as usize),
+            Operand::Relative(offset) => self.peek((self.relative_base + offset) as usize),
         }
     }
 
-    fn write(&mut self, operand: Operand, value: i32) {
+    fn write(&mut self, operand: Operand, value: i128) {
         match operand {
             Operand::Immediate(_) => (),
             Operand::Address(addr) => self.poke(addr as usize, value),
+            Operand::Relative(offset) => self.poke((self.relative_base + offset) as usize, value),
         }
     }
 
-    fn read_pc(&mut self) -> i32 {
+    fn read_pc(&mut self) -> i128 {
         let result = self.peek(self.program_counter);
         self.program_counter += 1;
 

@@ -52,6 +52,9 @@ fn main() {
     problem!(DayFour, 4, day_four_a, day_four_b);
     problem!(DayFive, 5, day_five_a, day_five_b);
     problem!(DaySix, 6, day_six_a, day_six_b);
+    problem!(DaySeven, 7, day_seven_a, day_seven_b);
+    problem!(DayEight, 8, day_eight_a, day_eight_b);
+    problem!(DayNine, 9, day_nine_a, day_nine_b);
 
     PROBLEMS.with(|problems| {
         let problems = problems.borrow();
@@ -110,7 +113,7 @@ fn day_one_b(input: &'static str) -> i32 {
         .sum::<i32>()
 }
 
-fn day_two_a(input: &'static str) -> i32 {
+fn day_two_a(input: &'static str) -> i128 {
     let mut machine = intcode::Machine::new(input);
     machine.poke(1, 12);
     machine.poke(2, 2);
@@ -118,7 +121,7 @@ fn day_two_a(input: &'static str) -> i32 {
     machine.peek(0)
 }
 
-fn day_two_b(input: &'static str) -> i32 {
+fn day_two_b(input: &'static str) -> i128 {
     let mut machine = intcode::Machine::new(input);
 
     for a in 0..10000 {
@@ -137,7 +140,7 @@ fn day_two_b(input: &'static str) -> i32 {
 }
 
 fn day_three_a(input: &'static str) -> i32 {
-    let mut lines = input.split('\n');
+    let mut lines = input.trim().split('\n');
 
     let first_line = lines
         .next()
@@ -152,17 +155,21 @@ fn day_three_a(input: &'static str) -> i32 {
         .map(day3::Movement::from_str)
         .filter_map(Result::ok);
 
-    let second_points: FxHashSet<_> = day3::Point::move_iter(second_line).collect();
+    let first_segments = day3::LineIter::new(first_line);
+    let second_segments: Vec<_> = day3::LineIter::new(second_line).collect();
 
-    day3::Point::move_iter(first_line)
-        .filter_map(|p| second_points.get(&p))
-        .map(|p| p.distance())
-        .min()
-        .unwrap_or(0)
+    let intersections = first_segments.filter_map(|(_, f)| {
+        second_segments
+            .iter()
+            .filter_map(|(_, s)| f.crosses(s))
+            .next()
+    });
+
+    intersections.map(|p| p.distance()).min().unwrap_or(0)
 }
 
-fn day_three_b(input: &'static str) -> usize {
-    let mut lines = input.split('\n');
+fn day_three_b(input: &'static str) -> i32 {
+    let mut lines = input.trim().split('\n');
 
     let first_line = lines
         .next()
@@ -170,7 +177,6 @@ fn day_three_b(input: &'static str) -> usize {
         .split(',')
         .map(day3::Movement::from_str)
         .filter_map(Result::ok);
-
     let second_line = lines
         .next()
         .unwrap()
@@ -178,13 +184,38 @@ fn day_three_b(input: &'static str) -> usize {
         .map(day3::Movement::from_str)
         .filter_map(Result::ok);
 
-    let second_points: FxHashSet<_> = day3::Point::move_iter(second_line).stepped().collect();
+    let first_segments = day3::LineIter::new(first_line);
+    let second_segments: Vec<_> = day3::LineIter::new(second_line)
+        .scan(0, |distance, (p, l)| {
+            *distance += l.length();
+            Some((*distance, p, l))
+        })
+        .collect();
 
-    day3::Point::move_iter(first_line)
-        .stepped()
-        .filter_map(|p| second_points.get(&p).map(|pp| p.steps + pp.steps))
-        .min()
-        .unwrap_or(0)
+    let mut min_distance = std::i32::MAX;
+
+    let mut fl_distance = 0;
+    for (fl_start, fl) in first_segments {
+        for (sl_distance, sl_start, sl) in &second_segments {
+            let total_distance = sl_distance + fl_distance;
+
+            if let Some(cross) = fl.crosses(sl) {
+                let distance = total_distance + fl_start.distance_to(&cross)
+                    - (sl.length() - sl_start.distance_to(&cross));
+                if distance < min_distance {
+                    min_distance = distance;
+                    break;
+                }
+            }
+
+            if total_distance > min_distance {
+                break;
+            }
+        }
+        fl_distance += fl.length();
+    }
+
+    min_distance
 }
 
 fn day_four_a(input: &'static str) -> usize {
@@ -198,27 +229,26 @@ fn day_four_a(input: &'static str) -> usize {
     let maximum = range.next().unwrap();
 
     let mut matches = Vec::new();
-    for n in minimum..maximum {
+    'outer: for n in minimum..maximum {
         let mut value = n % 10;
         let mut remainder = n / 10;
         let mut has_pair = false;
-        let mut never_decreases = true;
-        for _i in 0..6 {
+        for _ in 0..6 {
             let next_value = remainder % 10;
+
+            if value < next_value {
+                continue 'outer;
+            }
 
             if value == next_value {
                 has_pair = true;
-            }
-
-            if value < next_value {
-                never_decreases = false;
             }
 
             value = next_value;
             remainder = remainder / 10;
         }
 
-        if has_pair && never_decreases {
+        if has_pair {
             matches.push(n);
         }
     }
@@ -237,14 +267,17 @@ fn day_four_b(input: &'static str) -> usize {
     let maximum = range.next().unwrap();
 
     let mut matches = Vec::new();
-    for n in minimum..maximum {
+    'outer: for n in minimum..maximum {
         let mut value = n % 10;
         let mut remainder = n / 10;
         let mut in_pair = 0;
         let mut has_pair = false;
-        let mut never_decreases = true;
-        for _i in 0..6 {
+        for _ in 0..6 {
             let next_value = remainder % 10;
+
+            if value < next_value {
+                continue 'outer;
+            }
 
             if value == next_value {
                 in_pair += 1;
@@ -256,15 +289,11 @@ fn day_four_b(input: &'static str) -> usize {
                 in_pair = 0;
             }
 
-            if value < next_value {
-                never_decreases = false;
-            }
-
             value = next_value;
             remainder = remainder / 10;
         }
 
-        if has_pair && never_decreases {
+        if has_pair {
             matches.push(n);
         }
     }
@@ -272,7 +301,7 @@ fn day_four_b(input: &'static str) -> usize {
     matches.len()
 }
 
-fn day_five_a(input: &'static str) -> i32 {
+fn day_five_a(input: &'static str) -> i128 {
     let mut machine = intcode::Machine::new(input);
     let mut result = 0;
     loop {
@@ -286,7 +315,7 @@ fn day_five_a(input: &'static str) -> i32 {
     result
 }
 
-fn day_five_b(input: &'static str) -> i32 {
+fn day_five_b(input: &'static str) -> i128 {
     let mut machine = intcode::Machine::new(input);
     let mut result = 0;
     loop {
@@ -419,4 +448,170 @@ fn day_six_b(input: &'static str) -> usize {
     }
 
     count
+}
+
+fn generate_permutations<T: Clone, A: AsRef<[T]>>(arr: A) -> Vec<Vec<T>> {
+    let mut working_arr = arr.as_ref().to_vec();
+    let len = working_arr.len();
+    let mut results = Vec::with_capacity((1..=len).product());
+    generate_permutations_rec(&mut working_arr, len, &mut results);
+    results
+}
+
+fn generate_permutations_rec<T: Clone>(arr: &mut [T], n: usize, results: &mut Vec<Vec<T>>) {
+    if n == 1 {
+        results.push(arr.to_vec());
+
+        return;
+    }
+    for i in 0..n {
+        arr.swap(i, n - 1);
+        generate_permutations_rec(arr, n - 1, results);
+        arr.swap(i, n - 1);
+    }
+}
+
+fn day_seven_a(input: &'static str) -> i128 {
+    let mut machine = intcode::Machine::new(input);
+    let all_perms = generate_permutations([0, 1, 2, 3, 4]);
+    let mut results = Vec::with_capacity(all_perms.len());
+
+    for perm in all_perms {
+        let mut next_input = 0;
+
+        for phase in perm {
+            machine.run();
+            machine.set_input(phase);
+            machine.run();
+            machine.set_input(next_input);
+            if let intcode::Interrupt::Output(value) = machine.run() {
+                next_input = value;
+            }
+            machine.reset();
+        }
+
+        results.push(next_input);
+    }
+
+    results.into_iter().max().unwrap_or(0)
+}
+
+fn day_seven_b(input: &'static str) -> i128 {
+    let mut machines: Vec<_> = (0..5).map(|_| intcode::Machine::new(input)).collect();
+    let all_perms = generate_permutations([5, 6, 7, 8, 9]);
+    let mut results = Vec::with_capacity(all_perms.len());
+
+    for perm in all_perms {
+        for (m, phase) in machines.iter_mut().zip(perm) {
+            m.run();
+            m.set_input(phase);
+        }
+
+        let mut next_input = 0;
+        let mut done = false;
+        while !done {
+            for m in &mut machines {
+                loop {
+                    match m.run() {
+                        intcode::Interrupt::Input => m.set_input(next_input),
+                        intcode::Interrupt::Output(value) => {
+                            next_input = value;
+                            break;
+                        }
+                        intcode::Interrupt::Halt => {
+                            done = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for m in &mut machines {
+            m.reset();
+        }
+
+        results.push(next_input);
+    }
+
+    results.into_iter().max().unwrap_or(0)
+}
+
+fn day_eight_a(input: &'static str) -> usize {
+    const WIDTH: usize = 25;
+    const HEIGHT: usize = 6;
+    let layers = input.trim().as_bytes().chunks(WIDTH * HEIGHT);
+
+    let mut result = (std::usize::MAX, 0);
+    for layer in layers {
+        let mut counts = [0; 3];
+
+        layer
+            .iter()
+            .map(|p| p - 48)
+            .map(usize::from)
+            .for_each(|i| counts[i] += 1);
+
+        if counts[0] < result.0 {
+            result = (counts[0], counts[1] * counts[2]);
+        }
+    }
+
+    result.1
+}
+
+fn day_eight_b(input: &'static str) -> String {
+    const WIDTH: usize = 25;
+    const HEIGHT: usize = 6;
+    let layers = input.trim().as_bytes().chunks(WIDTH * HEIGHT).rev();
+
+    let mut canvas = vec![false; WIDTH * HEIGHT];
+
+    for layer in layers {
+        for (index, pixel) in layer.into_iter().enumerate() {
+            canvas[index] = match pixel {
+                b'0' => false,
+                b'1' => true,
+                _ => canvas[index],
+            };
+        }
+    }
+
+    let mut image = String::from("\n");
+    for row in canvas.chunks(WIDTH) {
+        for &pixel in row {
+            image.push(if pixel { '#' } else { ' ' });
+        }
+        image.push('\n');
+    }
+
+    image
+}
+
+fn day_nine_a(input: &'static str) -> i128 {
+    let mut machine = intcode::Machine::new(input);
+    let mut result = 0;
+    loop {
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Input => machine.set_input(1),
+            intcode::Interrupt::Output(value) => result = value,
+        }
+    }
+
+    result
+}
+
+fn day_nine_b(input: &'static str) -> i128 {
+    let mut machine = intcode::Machine::new(input);
+    let mut result = 0;
+    loop {
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Input => machine.set_input(2),
+            intcode::Interrupt::Output(value) => result = value,
+        }
+    }
+
+    result
 }
