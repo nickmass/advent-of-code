@@ -1,58 +1,187 @@
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
-enum Operand {
-    Immediate(i64),
-    Address(i64),
-    Relative(i64),
+enum Operand<W> {
+    Immediate(W),
+    Address(W),
+    Relative(W),
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Interrupt {
+pub enum Interrupt<W> {
     Input,
-    Output(i64),
+    Output(W),
     Halt,
 }
 
 #[derive(Debug, Copy, Clone)]
-enum Instruction {
-    Add(Operand, Operand, Operand),
-    Mul(Operand, Operand, Operand),
-    In(Operand),
-    Out(Operand),
-    JmpTrue(Operand, Operand),
-    JmpFalse(Operand, Operand),
-    LessThan(Operand, Operand, Operand),
-    Equal(Operand, Operand, Operand),
-    AdjustRelativeBase(Operand),
+enum Instruction<W> {
+    Add(Operand<W>, Operand<W>, Operand<W>),
+    Mul(Operand<W>, Operand<W>, Operand<W>),
+    In(Operand<W>),
+    Out(Operand<W>),
+    JmpTrue(Operand<W>, Operand<W>),
+    JmpFalse(Operand<W>, Operand<W>),
+    LessThan(Operand<W>, Operand<W>, Operand<W>),
+    Equal(Operand<W>, Operand<W>, Operand<W>),
+    AdjustRelativeBase(Operand<W>),
     Halt,
 }
 
-pub struct Machine {
-    static_mem: Vec<i64>,
-    mem: Vec<Option<i64>>,
+pub struct Opcode {
+    opcode: u32,
+    param_one_mode: u32,
+    param_two_mode: u32,
+    param_three_mode: u32,
+}
+
+pub trait Word:
+    FromStr
+    + Clone
+    + Copy
+    + std::ops::Add<Output = Self>
+    + std::ops::Mul<Output = Self>
+    + std::cmp::PartialEq
+    + std::cmp::PartialOrd
+    + std::fmt::Debug
+    + std::fmt::Display
+{
+    const ZERO: Self;
+    const ONE: Self;
+    fn as_opcode(&self) -> Opcode;
+    fn as_address(&self) -> usize;
+}
+
+macro_rules! impl_word {
+    ($($type:ty )+) => {
+        $(
+        impl Word for $type {
+            const ZERO: Self = 0;
+            const ONE: Self = 1;
+            fn as_opcode(&self) -> Opcode {
+                let val = *self as u32;
+                let opcode = (val as u32) % 100;
+                let param_one_mode = (val as u32) / 100 % 10;
+                let param_two_mode = (val as u32) / 1000 % 10;
+                let param_three_mode = (val as u32) / 10000 % 10;
+
+                Opcode {
+                    opcode,
+                    param_one_mode,
+                    param_two_mode,
+                    param_three_mode,
+                }
+            }
+
+            fn as_address(&self) -> usize {
+                *self as usize
+            }
+        }
+            )+
+    };
+}
+
+impl_word!(i16 i32 i64 i128);
+
+pub trait Memory<W: Word> {
+    fn new(capacity: usize) -> Self;
+    fn read(&mut self, addr: usize) -> Option<W>;
+    fn write(&mut self, addr: usize, value: W);
+    fn reset(&mut self);
+}
+
+pub struct VecMem<W: Word> {
+    capacity: usize,
+    mem: Vec<Option<W>>,
+}
+
+impl<W: Word> VecMem<W> {
+    fn resize_to_fit(&mut self, address: usize) {
+        if address >= self.mem.len() {
+            self.mem.resize(address + 1, Some(W::ZERO));
+        }
+    }
+}
+
+impl<W: Word> Memory<W> for VecMem<W> {
+    fn new(capacity: usize) -> Self {
+        let mem = vec![None; capacity];
+        VecMem { capacity, mem }
+    }
+    fn read(&mut self, addr: usize) -> Option<W> {
+        self.resize_to_fit(addr);
+        self.mem.get(addr).and_then(|v| v.clone())
+    }
+    fn write(&mut self, addr: usize, value: W) {
+        self.resize_to_fit(addr);
+        self.mem[addr] = Some(value);
+    }
+    fn reset(&mut self) {
+        self.mem.resize(self.capacity, None);
+        for i in 0..self.mem.len() {
+            self.mem[i] = None;
+        }
+    }
+}
+
+pub struct MapMem<W: Word> {
+    capacity: usize,
+    mem: fxhash::FxHashMap<usize, W>,
+}
+
+impl<W: Word> Memory<W> for MapMem<W> {
+    fn new(capacity: usize) -> Self {
+        let mem = fxhash::FxHashMap::default();
+        MapMem { capacity, mem }
+    }
+    fn read(&mut self, addr: usize) -> Option<W> {
+        self.mem.get(&addr).map(|v| v.clone()).or_else(|| {
+            if addr > self.capacity {
+                Some(W::ZERO)
+            } else {
+                None
+            }
+        })
+    }
+    fn write(&mut self, addr: usize, value: W) {
+        self.mem.insert(addr, value);
+    }
+    fn reset(&mut self) {
+        self.mem.clear();
+    }
+}
+
+pub struct Machine<W: Word, M: Memory<W>> {
+    static_mem: Vec<W>,
+    mem: M,
     program_counter: usize,
-    input: Option<i64>,
-    output: Option<i64>,
+    input: Option<W>,
+    output: Option<W>,
     debug: bool,
     int_halt: bool,
     int_input: bool,
     int_output: bool,
-    instruction: Instruction,
-    relative_base: i64,
+    instruction: Instruction<W>,
+    relative_base: W,
 }
 
-impl Machine {
-    pub fn new<S: AsRef<str>>(program: S) -> Self {
+impl<W: Word> Machine<W, VecMem<W>> {
+    pub fn new<S: AsRef<str>>(program: S) -> Machine<W, VecMem<W>> {
+        Machine::<W, VecMem<W>>::with_mem(program)
+    }
+}
+
+impl<W: Word, M: Memory<W>> Machine<W, M> {
+    pub fn with_mem<S: AsRef<str>>(program: S) -> Self {
         let program = program.as_ref();
         let mem: Vec<_> = program
             .split(',')
             .map(str::trim)
-            .map(i64::from_str)
+            .map(W::from_str)
             .filter_map(Result::ok)
             .collect();
 
-        let working_mem = vec![None; mem.len()];
+        let working_mem = M::new(mem.len());
 
         Machine {
             static_mem: mem,
@@ -65,22 +194,19 @@ impl Machine {
             int_input: false,
             int_output: false,
             instruction: Instruction::Halt,
-            relative_base: 0,
+            relative_base: W::ZERO,
         }
     }
 
     #[allow(dead_code)]
     pub fn debug<S: AsRef<str>>(program: S) -> Self {
-        let mut machine = Self::new(program);
+        let mut machine = Self::with_mem(program);
         machine.debug = true;
         machine
     }
 
     pub fn reset(&mut self) {
-        self.mem.resize(self.static_mem.len(), None);
-        for i in 0..self.mem.len() {
-            self.mem[i] = None;
-        }
+        self.mem.reset();
 
         self.program_counter = 0;
         self.int_halt = false;
@@ -88,14 +214,14 @@ impl Machine {
         self.int_output = false;
         self.input = None;
         self.output = None;
-        self.relative_base = 0;
+        self.relative_base = W::ZERO;
 
         if self.debug {
             println!("Reset");
         }
     }
 
-    fn decode_operand(&mut self, address_mode: i64) -> Operand {
+    fn decode_operand(&mut self, address_mode: u32) -> Operand<W> {
         match address_mode {
             0 => Operand::Address(self.read_pc()),
             1 => Operand::Immediate(self.read_pc()),
@@ -104,14 +230,17 @@ impl Machine {
         }
     }
 
-    fn decode(&mut self) -> Instruction {
+    fn decode(&mut self) -> Instruction<W> {
         let instruction = self.read_pc();
-        let op = instruction % 100;
-        let param_one_mode = instruction / 100 % 10;
-        let param_two_mode = instruction / 1000 % 10;
-        let param_three_mode = instruction / 10000 % 10;
 
-        match op {
+        let Opcode {
+            opcode,
+            param_one_mode,
+            param_two_mode,
+            param_three_mode,
+        } = instruction.as_opcode();
+
+        match opcode {
             1 => {
                 let op_one = self.decode_operand(param_one_mode);
                 let op_two = self.decode_operand(param_two_mode);
@@ -164,11 +293,11 @@ impl Machine {
                 self.int_halt = true;
                 Instruction::Halt
             }
-            _ => unreachable!("Unknown opcode: {}", op),
+            _ => unreachable!("Unknown opcode: {}", opcode),
         }
     }
 
-    fn execute(&mut self, instruction: Instruction) {
+    fn execute(&mut self, instruction: Instruction<W>) {
         match instruction {
             Instruction::Add(a, b, c) => {
                 let left = self.read(a);
@@ -193,33 +322,33 @@ impl Machine {
                 let condition = self.read(a);
                 let new_pc = self.read(b);
 
-                if condition != 0 {
-                    self.program_counter = new_pc as usize;
+                if condition != W::ZERO {
+                    self.program_counter = new_pc.as_address();
                 }
             }
             Instruction::JmpFalse(a, b) => {
                 let condition = self.read(a);
                 let new_pc = self.read(b);
 
-                if condition == 0 {
-                    self.program_counter = new_pc as usize;
+                if condition == W::ZERO {
+                    self.program_counter = new_pc.as_address();
                 }
             }
             Instruction::LessThan(a, b, c) => {
                 let left = self.read(a);
                 let right = self.read(b);
-                let value = if left < right { 1 } else { 0 };
+                let value = if left < right { W::ONE } else { W::ZERO };
                 self.write(c, value);
             }
             Instruction::Equal(a, b, c) => {
                 let left = self.read(a);
                 let right = self.read(b);
-                let value = if left == right { 1 } else { 0 };
+                let value = if left == right { W::ONE } else { W::ZERO };
                 self.write(c, value);
             }
             Instruction::AdjustRelativeBase(a) => {
                 let val = self.read(a);
-                self.relative_base += val;
+                self.relative_base = self.relative_base + val;
             }
             Instruction::Halt => {
                 if self.debug {
@@ -229,7 +358,7 @@ impl Machine {
         }
     }
 
-    pub fn run(&mut self) -> Interrupt {
+    pub fn run(&mut self) -> Interrupt<W> {
         loop {
             self.tick();
             if self.pending_interrupt() {
@@ -246,7 +375,7 @@ impl Machine {
             if self.debug {
                 println!("Output: {:?}", self.output);
             }
-            Interrupt::Output(self.output.take().unwrap_or(0))
+            Interrupt::Output(self.output.take().unwrap_or(W::ZERO))
         } else {
             unreachable!("Unmatched interrupt");
         }
@@ -268,49 +397,40 @@ impl Machine {
         self.execute(self.instruction);
     }
 
-    pub fn resize_to_fit(&mut self, addr: usize) {
-        if addr >= self.mem.len() {
-            if self.debug {
-                println!("Resized mem from {} to {}", self.mem.len(), addr + 1);
-            }
-            self.mem.resize(addr + 1, Some(0));
-        }
+    pub fn poke(&mut self, addr: usize, value: W) {
+        self.mem.write(addr, value);
     }
 
-    pub fn poke(&mut self, addr: usize, value: i64) {
-        self.resize_to_fit(addr);
-        self.mem[addr] = Some(value);
+    pub fn peek(&mut self, addr: usize) -> W {
+        self.mem.read(addr).unwrap_or_else(|| self.static_mem[addr])
     }
 
-    pub fn peek(&mut self, addr: usize) -> i64 {
-        self.resize_to_fit(addr);
-        self.mem[addr].unwrap_or_else(|| self.static_mem[addr])
-    }
-
-    pub fn set_input(&mut self, value: i64) {
+    pub fn set_input(&mut self, value: W) {
         if self.debug {
             println!("Input: {}", value);
         }
         self.input = Some(value);
     }
 
-    fn read(&mut self, operand: Operand) -> i64 {
+    fn read(&mut self, operand: Operand<W>) -> W {
         match operand {
             Operand::Immediate(val) => val,
-            Operand::Address(addr) => self.peek(addr as usize),
-            Operand::Relative(offset) => self.peek((self.relative_base + offset) as usize),
+            Operand::Address(addr) => self.peek(addr.as_address()),
+            Operand::Relative(offset) => self.peek((self.relative_base + offset).as_address()),
         }
     }
 
-    fn write(&mut self, operand: Operand, value: i64) {
+    fn write(&mut self, operand: Operand<W>, value: W) {
         match operand {
             Operand::Immediate(_) => (),
-            Operand::Address(addr) => self.poke(addr as usize, value),
-            Operand::Relative(offset) => self.poke((self.relative_base + offset) as usize, value),
+            Operand::Address(addr) => self.poke(addr.as_address(), value),
+            Operand::Relative(offset) => {
+                self.poke((self.relative_base + offset).as_address(), value)
+            }
         }
     }
 
-    fn read_pc(&mut self) -> i64 {
+    fn read_pc(&mut self) -> W {
         let result = self.peek(self.program_counter);
         self.program_counter += 1;
 

@@ -113,7 +113,7 @@ fn day_one_b(input: &'static str) -> i32 {
         .sum::<i32>()
 }
 
-fn day_two_a(input: &'static str) -> i64 {
+fn day_two_a(input: &'static str) -> i32 {
     let mut machine = intcode::Machine::new(input);
     machine.poke(1, 12);
     machine.poke(2, 2);
@@ -121,7 +121,7 @@ fn day_two_a(input: &'static str) -> i64 {
     machine.peek(0)
 }
 
-fn day_two_b(input: &'static str) -> i64 {
+fn day_two_b(input: &'static str) -> i32 {
     let mut machine = intcode::Machine::new(input);
 
     for a in 0..10000 {
@@ -301,7 +301,7 @@ fn day_four_b(input: &'static str) -> usize {
     matches.len()
 }
 
-fn day_five_a(input: &'static str) -> i64 {
+fn day_five_a(input: &'static str) -> i32 {
     let mut machine = intcode::Machine::new(input);
     let mut result = 0;
     loop {
@@ -315,7 +315,7 @@ fn day_five_a(input: &'static str) -> i64 {
     result
 }
 
-fn day_five_b(input: &'static str) -> i64 {
+fn day_five_b(input: &'static str) -> i32 {
     let mut machine = intcode::Machine::new(input);
     let mut result = 0;
     loop {
@@ -471,7 +471,7 @@ fn generate_permutations_rec<T: Clone>(arr: &mut [T], n: usize, results: &mut Ve
     }
 }
 
-fn day_seven_a(input: &'static str) -> i64 {
+fn day_seven_a(input: &'static str) -> i32 {
     let mut machine = intcode::Machine::new(input);
     let all_perms = generate_permutations([0, 1, 2, 3, 4]);
     let mut results = Vec::with_capacity(all_perms.len());
@@ -496,7 +496,7 @@ fn day_seven_a(input: &'static str) -> i64 {
     results.into_iter().max().unwrap_or(0)
 }
 
-fn day_seven_b(input: &'static str) -> i64 {
+fn day_seven_b(input: &'static str) -> i32 {
     let mut machines: Vec<_> = (0..5).map(|_| intcode::Machine::new(input)).collect();
     let all_perms = generate_permutations([5, 6, 7, 8, 9]);
     let mut results = Vec::with_capacity(all_perms.len());
