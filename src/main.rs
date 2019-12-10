@@ -658,53 +658,72 @@ impl AsteroidGrid {
         x >= 0 && y >= 0 && x < self.width && y < self.height
     }
 
-    fn visible_roids(&self, x: i32, y: i32) -> usize {
-        let mut roids: VecDeque<_> = self.occupied.iter().filter(|&&xy| xy != (x, y)).collect();
+    fn contains(&self, x: i32, y: i32) -> bool {
+        self.occupied.contains(&(x, y))
+    }
+}
 
-        let mut clean_rounds = 0;
+fn create_angle_grid(width: i32, height: i32) -> FxHashSet<(i32, i32)> {
+    let mut results = FxHashSet::default();
 
-        while clean_rounds < roids.len() + 1 && roids.len() > 0 {
-            let test = roids.pop_front().unwrap();
-            let mut x_diff = test.0 - x;
-            let mut y_diff = test.1 - y;
-
-            let mut n = x_diff.abs().max(y_diff.abs());
+    for y in 1..=height {
+        for x in 1..=width {
+            let mut n = x.max(y);
             while n > 1 {
-                if (x_diff == 0 || x_diff % n == 0) && (y_diff == 0 || y_diff % n == 0) {
-                    x_diff /= n;
-                    y_diff /= n;
+                if x % n == 0 && y % n == 0 {
+                    results.insert((x / n, y / n));
                     break;
                 }
                 n -= 1;
             }
 
-            let mut x_acc = x + x_diff;
-            let mut y_acc = y + y_diff;
-            clean_rounds += 1;
-            while self.in_bounds(x_acc, y_acc) {
-                if let Some(pos) = roids.iter().position(|&&xy| xy == (x_acc, y_acc)) {
-                    roids.remove(pos);
-                    clean_rounds = 0;
-                }
-
-                x_acc += x_diff;
-                y_acc += y_diff;
+            if n == 1 {
+                results.insert((x, y));
             }
-
-            roids.push_back(test);
         }
-
-        roids.len()
     }
+
+    let easy_corner: Vec<_> = results.iter().cloned().collect();
+
+    for &corner in &[(-1, 1), (1, -1), (-1, -1)] {
+        for &point in &easy_corner {
+            results.insert((corner.0 * point.0, corner.1 * point.1));
+        }
+    }
+
+    results.insert((0, 1));
+    results.insert((1, 0));
+    results.insert((0, -1));
+    results.insert((-1, 0));
+
+    results
+}
+
+fn roid_on_angle(x: i32, y: i32, roids: &AsteroidGrid, angles: &FxHashSet<(i32, i32)>) -> usize {
+    let mut count = 0;
+    'outer: for angle in angles.iter() {
+        let mut angle_acc = (angle.0 + x, angle.1 + y);
+        while roids.in_bounds(angle_acc.0, angle_acc.1) {
+            if roids.contains(angle_acc.0, angle_acc.1) {
+                count += 1;
+                continue 'outer;
+            }
+            angle_acc = (angle_acc.0 + angle.0, angle_acc.1 + angle.1);
+        }
+    }
+
+    count
 }
 
 fn day_ten_a(input: &'static str) -> usize {
     let grid = AsteroidGrid::new(input);
 
+    let angle_grid = create_angle_grid(grid.width, grid.height);
+
     let mut max_roids = 0;
     let roids: Vec<_> = grid.occupied.iter().collect();
     for &(x, y) in roids {
-        let roids = grid.visible_roids(x, y);
+        let roids = roid_on_angle(x, y, &grid, &angle_grid);
         if roids > max_roids {
             max_roids = roids;
         }
@@ -715,6 +734,9 @@ fn day_ten_a(input: &'static str) -> usize {
 
 fn day_ten_b(input: &'static str) -> usize {
     let lines = input.split('\n');
+
+    // caluclate angle for each entry in create_angle_grid
+    // loop through angle_grid sorted by angle remove at most one matching roid on each loop
 
     lines.count()
 }
