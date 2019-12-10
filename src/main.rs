@@ -55,6 +55,7 @@ fn main() {
     problem!(DaySeven, 7, day_seven_a, day_seven_b);
     problem!(DayEight, 8, day_eight_a, day_eight_b);
     problem!(DayNine, 9, day_nine_a, day_nine_b);
+    problem!(DayTen, 10, day_ten_a, day_ten_b);
 
     PROBLEMS.with(|problems| {
         let problems = problems.borrow();
@@ -614,4 +615,106 @@ fn day_nine_b(input: &'static str) -> i64 {
     }
 
     result
+}
+
+#[derive(Debug)]
+struct AsteroidGrid {
+    occupied: FxHashSet<(i32, i32)>,
+    width: i32,
+    height: i32,
+}
+
+impl AsteroidGrid {
+    fn new<S: AsRef<str>>(input: S) -> Self {
+        let input = input.as_ref();
+        let lines = input.trim().split('\n').map(str::trim).enumerate();
+
+        let mut height = 0;
+        let mut width = 0;
+
+        let mut occupied = FxHashSet::default();
+
+        for (y, row) in lines {
+            width = row.len();
+            for (x, cell) in row.chars().enumerate() {
+                match cell {
+                    '#' => {
+                        occupied.insert((x as i32, y as i32));
+                    }
+                    _ => (),
+                };
+            }
+            height += 1;
+        }
+
+        AsteroidGrid {
+            width: width as i32,
+            height,
+            occupied,
+        }
+    }
+
+    fn in_bounds(&self, x: i32, y: i32) -> bool {
+        x >= 0 && y >= 0 && x < self.width && y < self.height
+    }
+
+    fn visible_roids(&self, x: i32, y: i32) -> usize {
+        let mut roids: VecDeque<_> = self.occupied.iter().filter(|&&xy| xy != (x, y)).collect();
+
+        let mut clean_rounds = 0;
+
+        while clean_rounds < roids.len() + 1 && roids.len() > 0 {
+            let test = roids.pop_front().unwrap();
+            let mut x_diff = test.0 - x;
+            let mut y_diff = test.1 - y;
+
+            let mut n = x_diff.abs().max(y_diff.abs());
+            while n > 1 {
+                if (x_diff == 0 || x_diff % n == 0) && (y_diff == 0 || y_diff % n == 0) {
+                    x_diff /= n;
+                    y_diff /= n;
+                    break;
+                }
+                n -= 1;
+            }
+
+            let mut x_acc = x + x_diff;
+            let mut y_acc = y + y_diff;
+            clean_rounds += 1;
+            while self.in_bounds(x_acc, y_acc) {
+                if let Some(pos) = roids.iter().position(|&&xy| xy == (x_acc, y_acc)) {
+                    roids.remove(pos);
+                    clean_rounds = 0;
+                }
+
+                x_acc += x_diff;
+                y_acc += y_diff;
+            }
+
+            roids.push_back(test);
+        }
+
+        roids.len()
+    }
+}
+
+fn day_ten_a(input: &'static str) -> usize {
+    let grid = AsteroidGrid::new(input);
+
+    let mut max_roids = 0;
+    let roids: Vec<_> = grid.occupied.iter().collect();
+    for &(x, y) in roids {
+        let roids = grid.visible_roids(x, y);
+        if roids > max_roids {
+            max_roids = roids;
+        }
+    }
+
+    max_roids
+}
+
+fn day_ten_b(input: &'static str) -> usize {
+    let lines = input.split('\n');
+
+    lines.count()
 }
