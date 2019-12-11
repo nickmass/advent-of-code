@@ -56,6 +56,7 @@ fn main() {
     problem!(DayEight, 8, day_eight_a, day_eight_b);
     problem!(DayNine, 9, day_nine_a, day_nine_b);
     problem!(DayTen, 10, day_ten_a, day_ten_b);
+    problem!(DayEleven, 11, day_eleven_a, day_eleven_b);
 
     PROBLEMS.with(|problems| {
         let problems = problems.borrow();
@@ -796,4 +797,125 @@ fn day_ten_b(input: &'static str) -> i32 {
     }
 
     panic!("Missed it");
+}
+
+#[derive(Debug)]
+enum Direction {
+    Up,
+    Left,
+    Right,
+    Down,
+}
+
+impl Direction {
+    fn do_move(self, turn_left: bool, point: &mut (i32, i32)) -> Self {
+        match (self, turn_left) {
+            (Direction::Up, true) | (Direction::Down, false) => {
+                point.0 -= 1;
+                Direction::Left
+            }
+            (Direction::Up, false) | (Direction::Down, true) => {
+                point.0 += 1;
+                Direction::Right
+            }
+            (Direction::Left, false) | (Direction::Right, true) => {
+                point.1 -= 1;
+                Direction::Up
+            }
+            (Direction::Left, true) | (Direction::Right, false) => {
+                point.1 += 1;
+                Direction::Down
+            }
+        }
+    }
+}
+
+fn day_eleven_a(input: &'static str) -> usize {
+    let mut machine = intcode::Machine::<i64, _>::new(input);
+    let mut painted_spots = FxHashMap::default();
+    let mut point = (0, 0);
+    let mut dir = Direction::Up;
+    loop {
+        let color = *painted_spots.get(&point).unwrap_or(&0);
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Input => machine.set_input(color),
+            _ => unreachable!(),
+        }
+        let new_color = match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Output(color) => color,
+            _ => unreachable!(),
+        };
+
+        painted_spots.insert(point, new_color);
+        let movement = match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Output(movement) => movement,
+            _ => unreachable!(),
+        };
+
+        dir = dir.do_move(movement == 0, &mut point);
+    }
+
+    painted_spots.len()
+}
+
+fn day_eleven_b(input: &'static str) -> String {
+    let mut machine = intcode::Machine::<i64, _>::new(input);
+    let mut painted_spots = FxHashMap::default();
+    let mut point = (0, 0);
+    let mut dir = Direction::Up;
+    let mut min_x = 0;
+    let mut max_x = 0;
+    let mut min_y = 0;
+    let mut max_y = 0;
+
+    painted_spots.insert(point, 1);
+
+    loop {
+        let color = *painted_spots.get(&point).unwrap_or(&0);
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Input => machine.set_input(color),
+            _ => unreachable!(),
+        }
+        let new_color = match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Output(color) => color,
+            _ => unreachable!(),
+        };
+
+        painted_spots.insert(point, new_color);
+
+        min_x = point.0.min(min_x);
+        max_x = point.0.max(max_x);
+        min_y = point.1.min(min_x);
+        max_y = point.1.max(max_y);
+
+        let movement = match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Output(movement) => movement,
+            _ => unreachable!(),
+        };
+
+        dir = dir.do_move(movement == 0, &mut point);
+    }
+
+    let mut result = String::new();
+
+    result.push('\n');
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let color = *painted_spots.get(&(x, y)).unwrap_or(&0);
+            if color == 0 {
+                result.push(' ');
+            } else {
+                result.push('#');
+            }
+        }
+        result.push('\n');
+    }
+
+    result
 }
