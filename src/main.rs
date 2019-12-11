@@ -81,8 +81,18 @@ fn main() {
         let duration = start.elapsed();
 
         for result in &results {
-            println!("{:>2}-1:{:>14}{:>9}ms", result.0, result.1, result.3);
-            println!("{:>2}-2:{:>14}{:>9}ms", result.0, result.2, result.4);
+            if result.1.to_string().len() > 14 {
+                println!("{:>2}-1:{:>14}{:>9}ms", result.0, ' ', result.3);
+                println!("{}", result.1);
+            } else {
+                println!("{:>2}-1:{:>14}{:>9}ms", result.0, result.1, result.3);
+            }
+            if result.2.to_string().len() > 14 {
+                println!("{:>2}-2:{:>14}{:>9}ms", result.0, ' ', result.4);
+                println!("{}", result.2);
+            } else {
+                println!("{:>2}-2:{:>14}{:>9}ms", result.0, result.2, result.4);
+            }
         }
         println!("Total Duration:{:>13}ms", duration.as_millis());
     });
@@ -582,7 +592,7 @@ fn day_eight_b(input: &'static str) -> String {
     let mut image = String::from("\n");
     for row in canvas.chunks(WIDTH) {
         for &pixel in row {
-            image.push(if pixel { '#' } else { ' ' });
+            image.push_str(if pixel { "##" } else { "  " });
         }
         image.push('\n');
     }
@@ -621,6 +631,7 @@ fn day_nine_b(input: &'static str) -> i64 {
 #[derive(Debug)]
 struct AsteroidGrid {
     occupied: FxHashSet<(i32, i32)>,
+    angles: Vec<((i32, i32), f32)>,
     width: i32,
     height: i32,
 }
@@ -636,22 +647,22 @@ impl AsteroidGrid {
         let mut occupied = FxHashSet::default();
 
         for (y, row) in lines {
-            width = row.len();
+            width = row.len() as i32;
             for (x, cell) in row.chars().enumerate() {
-                match cell {
-                    '#' => {
-                        occupied.insert((x as i32, y as i32));
-                    }
-                    _ => (),
-                };
+                if cell == '#' {
+                    occupied.insert((x as i32, y as i32));
+                }
             }
             height += 1;
         }
 
+        let angles = create_angle_grid(width, height);
+
         AsteroidGrid {
-            width: width as i32,
+            width,
             height,
             occupied,
+            angles,
         }
     }
 
@@ -666,30 +677,48 @@ impl AsteroidGrid {
     fn remove(&mut self, x: i32, y: i32) -> bool {
         self.occupied.remove(&(x, y))
     }
+
+    fn roid_on_angle(&self, x: i32, y: i32) -> usize {
+        let mut count = 0;
+        'outer: for &((xx, yy), _) in &self.angles {
+            let (mut x_acc, mut y_acc) = (xx + x, yy + y);
+            while self.in_bounds(x_acc, y_acc) {
+                if self.contains(x_acc, y_acc) {
+                    count += 1;
+                    continue 'outer;
+                }
+                x_acc += xx;
+                y_acc += yy;
+            }
+        }
+
+        count
+    }
 }
 
-fn create_angle_grid(width: i32, height: i32) -> FxHashMap<(i32, i32), f64> {
+fn create_angle_grid(width: i32, height: i32) -> Vec<((i32, i32), f32)> {
+    use std::f32::consts::PI;
     let mut results = FxHashMap::default();
 
     for y in 1..=height {
-        for x in 1..=width {
+        'outer: for x in 1..=width {
             let mut n = x.max(y);
-            let angle = std::f64::consts::PI - (x as f64 / y as f64).atan();
+            let angle = PI - (x as f32 / y as f32).atan();
             while n > 1 {
                 if x % n == 0 && y % n == 0 {
                     results.insert((x / n, y / n), angle);
-                    break;
+                    continue 'outer;
                 }
                 n -= 1;
             }
 
-            if n == 1 {
-                results.insert((x, y), angle);
-            }
+            results.insert((x, y), angle);
         }
     }
 
-    let easy_corner: Vec<_> = results.iter().map(|(&xy, &angle)| (xy, angle)).collect();
+    let mut corners: Vec<_> = results.into_iter().collect();
+    let corner_elements = corners.len();
+    corners.reserve(corner_elements * 3);
 
     #[derive(Clone, Copy)]
     enum Corner {
@@ -703,56 +732,34 @@ fn create_angle_grid(width: i32, height: i32) -> FxHashMap<(i32, i32), f64> {
         (-1, 1, Corner::BottomLeft),
         (-1, -1, Corner::TopLeft),
     ] {
-        for &((xx, yy), angle) in &easy_corner {
-            let angle = std::f64::consts::PI - angle;
+        for idx in 0..corner_elements {
+            let ((xx, yy), angle) = corners[idx];
+            let angle = PI - angle;
             let angle = match corner {
                 Corner::TopRight => angle,
-                Corner::BottomLeft => (std::f64::consts::PI) + angle,
-                Corner::TopLeft => (std::f64::consts::PI * 2.0) - angle,
+                Corner::BottomLeft => PI + angle,
+                Corner::TopLeft => (PI * 2.0) - angle,
             };
-            results.insert((x * xx, y * yy), angle);
+            corners.push(((x * xx, y * yy), angle));
         }
     }
 
-    results.insert((0, -1), 0.0);
-    results.insert((1, 0), std::f64::consts::PI / 2.0);
-    results.insert((0, 1), std::f64::consts::PI);
-    results.insert((-1, 0), 1.5 * std::f64::consts::PI);
+    let corner_offset = PI / 2.0;
+    corners.push(((0, -1), 0.0 * corner_offset));
+    corners.push(((1, 0), 1.0 * corner_offset));
+    corners.push(((0, 1), 2.0 * corner_offset));
+    corners.push(((-1, 0), 3.0 * corner_offset));
 
-    results
-}
-
-fn roid_on_angle(
-    x: i32,
-    y: i32,
-    roids: &AsteroidGrid,
-    angles: &FxHashMap<(i32, i32), f64>,
-) -> usize {
-    let mut count = 0;
-    'outer: for angle in angles.keys() {
-        let mut angle_acc = (angle.0 + x, angle.1 + y);
-        while roids.in_bounds(angle_acc.0, angle_acc.1) {
-            if roids.contains(angle_acc.0, angle_acc.1) {
-                count += 1;
-                continue 'outer;
-            }
-            angle_acc = (angle_acc.0 + angle.0, angle_acc.1 + angle.1);
-        }
-    }
-
-    count
+    corners
 }
 
 fn day_ten_a(input: &'static str) -> String {
     let grid = AsteroidGrid::new(input);
 
-    let angle_grid = create_angle_grid(grid.width, grid.height);
-
     let mut max_roids = 0;
     let mut target = (0, 0);
-    let roids: Vec<_> = grid.occupied.iter().collect();
-    for &(x, y) in roids {
-        let roids = roid_on_angle(x, y, &grid, &angle_grid);
+    for &(x, y) in grid.occupied.iter() {
+        let roids = grid.roid_on_angle(x, y);
         if roids > max_roids {
             target = (x, y);
             max_roids = roids;
@@ -767,16 +774,15 @@ fn day_ten_b(input: &'static str) -> i32 {
     const Y: i32 = 25;
     let mut grid = AsteroidGrid::new(input);
 
-    let mut angle_grid: Vec<_> = create_angle_grid(grid.width, grid.height)
-        .into_iter()
-        .collect();
-
-    angle_grid.sort_by(|(_, a1), (_, a2)| a1.partial_cmp(a2).unwrap());
+    grid.angles
+        .sort_unstable_by(|(_, a1), (_, a2)| a1.partial_cmp(a2).unwrap());
 
     let mut loop_count = 1;
     let mut remove_count = 0;
+    let angles = grid.angles.len();
     while loop_count < grid.height * grid.width {
-        for ((xx, yy), _) in &angle_grid {
+        for idx in 0..angles {
+            let ((xx, yy), _) = grid.angles[idx];
             let mut target_x = X + (xx * loop_count);
             let mut target_y = Y + (yy * loop_count);
 
@@ -909,9 +915,9 @@ fn day_eleven_b(input: &'static str) -> String {
         for x in min_x..=max_x {
             let color = *painted_spots.get(&(x, y)).unwrap_or(&0);
             if color == 0 {
-                result.push(' ');
+                result.push_str("  ");
             } else {
-                result.push('#');
+                result.push_str("##");
             }
         }
         result.push('\n');
