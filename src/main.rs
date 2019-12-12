@@ -82,20 +82,20 @@ fn main() {
         let duration = start.elapsed();
 
         for result in &results {
-            if result.1.to_string().len() > 14 {
-                println!("{:>2}-1:{:>14}{:>9}ms", result.0, ' ', result.3);
+            if result.1.to_string().len() > 18 {
+                println!("{:>2}-1:{:>18}{:>9}ms", result.0, ' ', result.3);
                 println!("{}", result.1);
             } else {
-                println!("{:>2}-1:{:>14}{:>9}ms", result.0, result.1, result.3);
+                println!("{:>2}-1:{:>18}{:>9}ms", result.0, result.1, result.3);
             }
-            if result.2.to_string().len() > 14 {
-                println!("{:>2}-2:{:>14}{:>9}ms", result.0, ' ', result.4);
+            if result.2.to_string().len() > 18 {
+                println!("{:>2}-2:{:>18}{:>9}ms", result.0, ' ', result.4);
                 println!("{}", result.2);
             } else {
-                println!("{:>2}-2:{:>14}{:>9}ms", result.0, result.2, result.4);
+                println!("{:>2}-2:{:>18}{:>9}ms", result.0, result.2, result.4);
             }
         }
-        println!("Total Duration:{:>13}ms", duration.as_millis());
+        println!("Total Duration:{:>17}ms", duration.as_millis());
     });
 }
 
@@ -631,8 +631,8 @@ fn day_nine_b(input: &'static str) -> i64 {
 
 #[derive(Debug)]
 struct AsteroidGrid {
-    occupied: FxHashSet<(i32, i32)>,
-    angles: Vec<((i32, i32), f32)>,
+    occupied: FxHashSet<Point2<i32>>,
+    angles: Vec<(Point2<i32>, f32)>,
     width: i32,
     height: i32,
 }
@@ -651,7 +651,7 @@ impl AsteroidGrid {
             width = row.len() as i32;
             for (x, cell) in row.chars().enumerate() {
                 if cell == '#' {
-                    occupied.insert((x as i32, y as i32));
+                    occupied.insert(Point2::new(x as i32, y as i32));
                 }
             }
             height += 1;
@@ -667,29 +667,28 @@ impl AsteroidGrid {
         }
     }
 
-    fn in_bounds(&self, x: i32, y: i32) -> bool {
-        x >= 0 && y >= 0 && x < self.width && y < self.height
+    fn in_bounds(&self, p: Point2<i32>) -> bool {
+        p.x >= 0 && p.y >= 0 && p.x < self.width && p.y < self.height
     }
 
-    fn contains(&self, x: i32, y: i32) -> bool {
-        self.occupied.contains(&(x, y))
+    fn contains(&self, p: Point2<i32>) -> bool {
+        self.occupied.contains(&p)
     }
 
-    fn remove(&mut self, x: i32, y: i32) -> bool {
-        self.occupied.remove(&(x, y))
+    fn remove(&mut self, p: Point2<i32>) -> bool {
+        self.occupied.remove(&p)
     }
 
-    fn roid_on_angle(&self, x: i32, y: i32) -> usize {
+    fn roid_on_angle(&self, p: Point2<i32>) -> usize {
         let mut count = 0;
-        'outer: for &((xx, yy), _) in &self.angles {
-            let (mut x_acc, mut y_acc) = (xx + x, yy + y);
-            while self.in_bounds(x_acc, y_acc) {
-                if self.contains(x_acc, y_acc) {
+        'outer: for &(pp, _) in &self.angles {
+            let mut p_acc = pp + p;
+            while self.in_bounds(p_acc) {
+                if self.contains(p_acc) {
                     count += 1;
                     continue 'outer;
                 }
-                x_acc += xx;
-                y_acc += yy;
+                p_acc += pp;
             }
         }
 
@@ -697,23 +696,15 @@ impl AsteroidGrid {
     }
 }
 
-fn create_angle_grid(width: i32, height: i32) -> Vec<((i32, i32), f32)> {
+fn create_angle_grid(width: i32, height: i32) -> Vec<(Point2<i32>, f32)> {
     use std::f32::consts::PI;
     let mut results = FxHashMap::default();
 
     for y in 1..=height {
         'outer: for x in 1..=width {
-            let mut n = x.max(y);
             let angle = PI - (x as f32 / y as f32).atan();
-            while n > 1 {
-                if x % n == 0 && y % n == 0 {
-                    results.insert((x / n, y / n), angle);
-                    continue 'outer;
-                }
-                n -= 1;
-            }
-
-            results.insert((x, y), angle);
+            let gcd = x.gcd(y);
+            results.insert(Point2::new(x / gcd, y / gcd), angle);
         }
     }
 
@@ -728,28 +719,28 @@ fn create_angle_grid(width: i32, height: i32) -> Vec<((i32, i32), f32)> {
         TopLeft,
     }
 
-    for &(x, y, corner) in &[
-        (1, -1, Corner::TopRight),
-        (-1, 1, Corner::BottomLeft),
-        (-1, -1, Corner::TopLeft),
+    for &(p, corner) in &[
+        (Point2::new(1, -1), Corner::TopRight),
+        (Point2::new(-1, 1), Corner::BottomLeft),
+        (Point2::new(-1, -1), Corner::TopLeft),
     ] {
         for idx in 0..corner_elements {
-            let ((xx, yy), angle) = corners[idx];
+            let (pp, angle) = corners[idx];
             let angle = PI - angle;
             let angle = match corner {
                 Corner::TopRight => angle,
                 Corner::BottomLeft => PI + angle,
                 Corner::TopLeft => (PI * 2.0) - angle,
             };
-            corners.push(((x * xx, y * yy), angle));
+            corners.push((p * pp, angle));
         }
     }
 
     let corner_offset = PI / 2.0;
-    corners.push(((0, -1), 0.0 * corner_offset));
-    corners.push(((1, 0), 1.0 * corner_offset));
-    corners.push(((0, 1), 2.0 * corner_offset));
-    corners.push(((-1, 0), 3.0 * corner_offset));
+    corners.push((Point2::new(0, -1), 0.0 * corner_offset));
+    corners.push((Point2::new(1, 0), 1.0 * corner_offset));
+    corners.push((Point2::new(0, 1), 2.0 * corner_offset));
+    corners.push((Point2::new(-1, 0), 3.0 * corner_offset));
 
     corners
 }
@@ -758,21 +749,22 @@ fn day_ten_a(input: &'static str) -> String {
     let grid = AsteroidGrid::new(input);
 
     let mut max_roids = 0;
-    let mut target = (0, 0);
-    for &(x, y) in grid.occupied.iter() {
-        let roids = grid.roid_on_angle(x, y);
+    let mut target = Point2::new(0, 0);
+    for &p in grid.occupied.iter() {
+        let roids = grid.roid_on_angle(p);
         if roids > max_roids {
-            target = (x, y);
+            target = p;
             max_roids = roids;
         }
     }
 
-    format!("{} @ {},{}", max_roids, target.0, target.1)
+    format!("{} @ {},{}", max_roids, target.x, target.y)
 }
 
 fn day_ten_b(input: &'static str) -> i32 {
     const X: i32 = 37;
     const Y: i32 = 25;
+    const P: Point2<i32> = Point2::new(X, Y);
     let mut grid = AsteroidGrid::new(input);
 
     grid.angles
@@ -783,21 +775,19 @@ fn day_ten_b(input: &'static str) -> i32 {
     let angles = grid.angles.len();
     while loop_count < grid.height * grid.width {
         for idx in 0..angles {
-            let ((xx, yy), _) = grid.angles[idx];
-            let mut target_x = X + (xx * loop_count);
-            let mut target_y = Y + (yy * loop_count);
+            let (pp, _) = grid.angles[idx];
+            let mut target = P + (pp * loop_count);
 
-            while grid.in_bounds(target_x, target_y) {
-                if grid.remove(target_x, target_y) {
+            while grid.in_bounds(target) {
+                if grid.remove(target) {
                     remove_count += 1;
                     if remove_count == 200 {
-                        return target_x * 100 + target_y;
+                        return target.x * 100 + target.y;
                     }
                     break;
                 }
 
-                target_x += xx;
-                target_y += yy;
+                target += pp;
             }
         }
         loop_count += 1;
@@ -815,22 +805,22 @@ enum Direction {
 }
 
 impl Direction {
-    fn do_move(self, turn_left: bool, point: &mut (i32, i32)) -> Self {
+    fn do_move(self, turn_left: bool, point: &mut Point2<i32>) -> Self {
         match (self, turn_left) {
             (Direction::Up, true) | (Direction::Down, false) => {
-                point.0 -= 1;
+                point.x -= 1;
                 Direction::Left
             }
             (Direction::Up, false) | (Direction::Down, true) => {
-                point.0 += 1;
+                point.x += 1;
                 Direction::Right
             }
             (Direction::Left, false) | (Direction::Right, true) => {
-                point.1 -= 1;
+                point.y -= 1;
                 Direction::Up
             }
             (Direction::Left, true) | (Direction::Right, false) => {
-                point.1 += 1;
+                point.y += 1;
                 Direction::Down
             }
         }
@@ -840,7 +830,7 @@ impl Direction {
 fn day_eleven_a(input: &'static str) -> usize {
     let mut machine = intcode::Machine::<i64, _>::new(input);
     let mut painted_spots = FxHashMap::default();
-    let mut point = (0, 0);
+    let mut point = Point2::new(0, 0);
     let mut dir = Direction::Up;
     loop {
         let color = *painted_spots.get(&point).unwrap_or(&0);
@@ -871,7 +861,7 @@ fn day_eleven_a(input: &'static str) -> usize {
 fn day_eleven_b(input: &'static str) -> String {
     let mut machine = intcode::Machine::<i64, _>::new(input);
     let mut painted_spots = FxHashMap::default();
-    let mut point = (0, 0);
+    let mut point = Point2::new(0, 0);
     let mut dir = Direction::Up;
     let mut min_x = 0;
     let mut max_x = 0;
@@ -895,10 +885,10 @@ fn day_eleven_b(input: &'static str) -> String {
 
         painted_spots.insert(point, new_color);
 
-        min_x = point.0.min(min_x);
-        max_x = point.0.max(max_x);
-        min_y = point.1.min(min_x);
-        max_y = point.1.max(max_y);
+        min_x = point.x.min(min_x);
+        max_x = point.x.max(max_x);
+        min_y = point.y.min(min_x);
+        max_y = point.y.max(max_y);
 
         let movement = match machine.run() {
             intcode::Interrupt::Halt => break,
@@ -914,7 +904,7 @@ fn day_eleven_b(input: &'static str) -> String {
     result.push('\n');
     for y in min_y..=max_y {
         for x in min_x..=max_x {
-            let color = *painted_spots.get(&(x, y)).unwrap_or(&0);
+            let color = *painted_spots.get(&Point2::new(x, y)).unwrap_or(&0);
             if color == 0 {
                 result.push_str("  ");
             } else {
@@ -927,34 +917,165 @@ fn day_eleven_b(input: &'static str) -> String {
     result
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct Point<T: Eq + PartialEq + std::hash::Hash> {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct Point3<T> {
     x: T,
     y: T,
     z: T,
 }
 
-impl<T: std::ops::Sub<Output = T> + Eq + PartialEq + std::hash::Hash> std::ops::Sub for Point<T> {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Point {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            z: self.z - rhs.z,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct Point2<T> {
+    x: T,
+    y: T,
+}
+
+macro_rules! impl_point_op {
+    ($name:ident, $func:ident, $op:tt) => {
+        impl<T: std::ops::$name<Output = T>> std::ops::$name for Point3<T> {
+            type Output = Self;
+            fn $func(self, rhs: Self) -> Self::Output {
+                Point3 {
+                    x: self.x $op rhs.x,
+                    y: self.y $op rhs.y,
+                    z: self.z $op rhs.z,
+                }
+            }
         }
+
+        impl<T: std::ops::$name<Output = T> + Copy> std::ops::$name<T> for Point3<T> {
+            type Output = Self;
+            fn $func(self, rhs: T) -> Self::Output {
+                Point3 {
+                    x: self.x $op rhs,
+                    y: self.y $op rhs,
+                    z: self.z $op rhs,
+                }
+            }
+        }
+
+        impl<T: std::ops::$name<Output = T>> std::ops::$name for Point2<T> {
+            type Output = Self;
+            fn $func(self, rhs: Self) -> Self::Output {
+                Point2 {
+                    x: self.x $op rhs.x,
+                    y: self.y $op rhs.y,
+                }
+            }
+        }
+
+        impl<T: std::ops::$name<Output = T> + Copy> std::ops::$name<T> for Point2<T> {
+            type Output = Self;
+            fn $func(self, rhs: T) -> Self::Output {
+                Point2 {
+                    x: self.x $op rhs,
+                    y: self.y $op rhs,
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_point_op_assign {
+    ($name:ident, $func:ident, $op:tt) => {
+        impl<T: std::ops::$name> std::ops::$name for Point3<T> {
+            fn $func(&mut self, rhs: Self) {
+                self.x $op rhs.x;
+                self.y $op rhs.y;
+                self.z $op rhs.z;
+            }
+        }
+
+        impl<T: std::ops::$name + Copy> std::ops::$name<T> for Point3<T> {
+            fn $func(&mut self, rhs: T) {
+                self.x $op rhs;
+                self.y $op rhs;
+                self.z $op rhs;
+            }
+        }
+
+        impl<T: std::ops::$name> std::ops::$name for Point2<T> {
+            fn $func(&mut self, rhs: Self) {
+                self.x $op rhs.x;
+                self.y $op rhs.y;
+            }
+        }
+
+        impl<T: std::ops::$name + Copy> std::ops::$name<T> for Point2<T> {
+            fn $func(&mut self, rhs: T) {
+                self.x $op rhs;
+                self.y $op rhs;
+            }
+        }
+    };
+}
+
+impl_point_op!(Sub, sub, -);
+impl_point_op!(Add, add, +);
+impl_point_op!(Mul, mul, *);
+impl_point_op!(Div, div, /);
+impl_point_op!(Rem, rem, %);
+
+impl_point_op_assign!(SubAssign, sub_assign, -=);
+impl_point_op_assign!(AddAssign, add_assign, +=);
+impl_point_op_assign!(MulAssign, mul_assign, *=);
+impl_point_op_assign!(DivAssign, div_assign, /=);
+impl_point_op_assign!(RemAssign, rem_assign, %=);
+
+impl<T> Point3<T> {
+    const fn new(x: T, y: T, z: T) -> Self {
+        Point3 { x, y, z }
     }
 }
 
-impl<T: std::ops::Add<Output = T> + Eq + PartialEq + std::hash::Hash> std::ops::Add for Point<T> {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        Point {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-        }
+impl<T> Point2<T> {
+    const fn new(x: T, y: T) -> Self {
+        Point2 { x, y }
     }
 }
+
+impl<T: std::hash::Hash> std::hash::Hash for Point3<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+        self.z.hash(state);
+    }
+}
+
+impl<T: std::hash::Hash> std::hash::Hash for Point2<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
+
+trait Gcd<Rhs = Self> {
+    type Output;
+    fn gcd(self, rhs: Rhs) -> Self::Output;
+}
+
+macro_rules! impl_gcd {
+    ($($type:ty )+) => {
+        $(
+            impl Gcd for $type {
+                type Output = Self;
+                fn gcd(self, rhs: Self) -> Self {
+                    let mut n = self.min(rhs);
+                    while n > 1 {
+                        if self % n == 0 && rhs % n == 0 {
+                            return n;
+                        }
+                        n -= 1;
+                    }
+
+                    return 1;
+                }
+            }
+        )+
+    };
+}
+
+impl_gcd!(i32 u32 i64 u64 i128 u128 isize usize);
 
 fn day_twelve_a(input: &'static str) -> i64 {
     let mut points: Vec<_> = input
@@ -971,17 +1092,11 @@ fn day_twelve_a(input: &'static str) -> i64 {
                     s.clear();
                 }
             }
-            Point {
-                x: n[0],
-                y: n[1],
-                z: n[2],
-            }
+            Point3::new(n[0], n[1], n[2])
         })
         .collect();
 
-    let mut velo: Vec<_> = (0..points.len())
-        .map(|_| Point { x: 0, y: 0, z: 0 })
-        .collect();
+    let mut velo: Vec<_> = (0..points.len()).map(|_| Point3::new(0, 0, 0)).collect();
     for _ in 0..1000 {
         for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
             for (j, &pp) in points.iter().enumerate() {
@@ -1051,18 +1166,14 @@ fn sequence_length(initial_points: &[i64]) -> usize {
         }
 
         done = true;
-        for ((p, &v), ip) in points
-            .iter_mut()
-            .zip(velo.iter())
-            .zip(initial_points.iter())
-        {
+        for (p, &v) in points.iter_mut().zip(velo.iter()) {
             *p = *p + v;
-            done = done && p == ip && v == 0
+            done = done && v == 0
         }
         count += 1;
     }
 
-    count
+    count * 2
 }
 
 fn day_twelve_b(input: &'static str) -> usize {
@@ -1080,11 +1191,7 @@ fn day_twelve_b(input: &'static str) -> usize {
                     s.clear();
                 }
             }
-            Point {
-                x: n[0],
-                y: n[1],
-                z: n[2],
-            }
+            Point3::new(n[0], n[1], n[2])
         })
         .collect();
 
@@ -1100,27 +1207,8 @@ fn day_twelve_b(input: &'static str) -> usize {
     let y_length = y_handle.join().unwrap();
     let z_length = z_handle.join().unwrap();
 
-    let mut n = x_length.min(y_length) / 2;
-    let mut xy_gcd = 1;
-    while n > 1 {
-        if x_length % n == 0 && y_length % n == 0 {
-            xy_gcd = n;
-            break;
-        }
-        n -= 1;
-    }
-
+    let xy_gcd = x_length.gcd(y_length);
     let xy_lcm = (x_length * y_length) / xy_gcd;
-
-    let mut n = xy_lcm.min(z_length) / 2;
-    let mut xyz_gcd = 1;
-    while n > 1 {
-        if xy_lcm % n == 0 && z_length % n == 0 {
-            xyz_gcd = n;
-            break;
-        }
-        n -= 1;
-    }
-
+    let xyz_gcd = xy_lcm.gcd(z_length);
     (xy_lcm * z_length) / xyz_gcd
 }
