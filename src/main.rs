@@ -57,6 +57,7 @@ fn main() {
     problem!(DayNine, 9, day_nine_a, day_nine_b);
     problem!(DayTen, 10, day_ten_a, day_ten_b);
     problem!(DayEleven, 11, day_eleven_a, day_eleven_b);
+    problem!(DayTwelve, 12, day_twelve_a, day_twelve_b);
 
     PROBLEMS.with(|problems| {
         let problems = problems.borrow();
@@ -924,4 +925,129 @@ fn day_eleven_b(input: &'static str) -> String {
     }
 
     result
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct Point<T: Eq + PartialEq + std::hash::Hash> {
+    x: T,
+    y: T,
+    z: T,
+}
+
+impl<T: std::ops::Sub<Output = T> + Eq + PartialEq + std::hash::Hash> std::ops::Sub for Point<T> {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Point {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
+}
+
+impl<T: std::ops::Add<Output = T> + Eq + PartialEq + std::hash::Hash> std::ops::Add for Point<T> {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Point {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+fn day_twelve_a(input: &'static str) -> i64 {
+    let mut points: Vec<_> = input
+        .trim()
+        .split('\n')
+        .map(|l| {
+            let mut s = String::new();
+            let mut n = Vec::new();
+            for c in l.chars() {
+                if c.is_digit(10) || c == '-' {
+                    s.push(c);
+                } else if s.len() > 0 {
+                    n.push(s.parse::<i64>().unwrap());
+                    s.clear();
+                }
+            }
+            Point {
+                x: n[0],
+                y: n[1],
+                z: n[2],
+            }
+        })
+        .collect();
+
+    let mut velo: Vec<_> = (0..points.len())
+        .map(|_| Point { x: 0, y: 0, z: 0 })
+        .collect();
+    for _ in 0..1000 {
+        for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
+            for (j, &pp) in points.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+
+                vel.x -= if p.x > pp.x {
+                    1
+                } else if p.x < pp.x {
+                    -1
+                } else {
+                    0
+                };
+                vel.y -= if p.y > pp.y {
+                    1
+                } else if p.y < pp.y {
+                    -1
+                } else {
+                    0
+                };
+                vel.z -= if p.z > pp.z {
+                    1
+                } else if p.z < pp.z {
+                    -1
+                } else {
+                    0
+                };
+            }
+        }
+
+        for (p, v) in points.iter_mut().zip(velo.iter()) {
+            *p = *p + *v;
+        }
+    }
+
+    points
+        .iter()
+        .map(|p| p.x.abs() + p.y.abs() + p.z.abs())
+        .zip(velo.iter().map(|v| v.x.abs() + v.y.abs() + v.z.abs()))
+        .map(|(p, v)| p * v)
+        .sum::<i64>()
+}
+
+fn day_twelve_b(input: &'static str) -> usize {
+    let points: Vec<_> = input
+        .trim()
+        .split('\n')
+        .map(|l| {
+            let mut s = String::new();
+            let mut n = Vec::new();
+            for c in l.chars() {
+                if c.is_digit(10) || c == '-' {
+                    s.push(c);
+                } else if s.len() > 0 {
+                    n.push(s.parse::<i64>().unwrap());
+                    s.clear();
+                }
+            }
+            Point {
+                x: n[0],
+                y: n[1],
+                z: n[2],
+            }
+        })
+        .collect();
+
+    points.len()
 }
