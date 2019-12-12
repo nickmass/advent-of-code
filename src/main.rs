@@ -1026,6 +1026,45 @@ fn day_twelve_a(input: &'static str) -> i64 {
         .sum::<i64>()
 }
 
+fn sequence_length(initial_points: &[i64]) -> usize {
+    let mut points = initial_points.to_vec();
+    let mut velo: Vec<_> = points.iter().map(|_| 0).collect();
+
+    let mut count = 0;
+
+    let mut done = false;
+    while !done {
+        for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
+            for (j, &pp) in points.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+
+                *vel -= if p > pp {
+                    1
+                } else if p < pp {
+                    -1
+                } else {
+                    0
+                };
+            }
+        }
+
+        done = true;
+        for ((p, &v), ip) in points
+            .iter_mut()
+            .zip(velo.iter())
+            .zip(initial_points.iter())
+        {
+            *p = *p + v;
+            done = done && p == ip && v == 0
+        }
+        count += 1;
+    }
+
+    count
+}
+
 fn day_twelve_b(input: &'static str) -> usize {
     let points: Vec<_> = input
         .trim()
@@ -1049,5 +1088,39 @@ fn day_twelve_b(input: &'static str) -> usize {
         })
         .collect();
 
-    points.len()
+    let x_coords: Vec<_> = points.iter().map(|&p| p.x).collect();
+    let y_coords: Vec<_> = points.iter().map(|&p| p.y).collect();
+    let z_coords: Vec<_> = points.iter().map(|&p| p.z).collect();
+
+    let x_handle = std::thread::spawn(move || sequence_length(x_coords.as_slice()));
+    let y_handle = std::thread::spawn(move || sequence_length(y_coords.as_slice()));
+    let z_handle = std::thread::spawn(move || sequence_length(z_coords.as_slice()));
+
+    let x_length = x_handle.join().unwrap();
+    let y_length = y_handle.join().unwrap();
+    let z_length = z_handle.join().unwrap();
+
+    let mut n = x_length.min(y_length) / 2;
+    let mut xy_gcd = 1;
+    while n > 1 {
+        if x_length % n == 0 && y_length % n == 0 {
+            xy_gcd = n;
+            break;
+        }
+        n -= 1;
+    }
+
+    let xy_lcm = (x_length * y_length) / xy_gcd;
+
+    let mut n = xy_lcm.min(z_length) / 2;
+    let mut xyz_gcd = 1;
+    while n > 1 {
+        if xy_lcm % n == 0 && z_length % n == 0 {
+            xyz_gcd = n;
+            break;
+        }
+        n -= 1;
+    }
+
+    (xy_lcm * z_length) / xyz_gcd
 }
