@@ -58,6 +58,7 @@ fn main() {
     problem!(DayTen, 10, day_ten_a, day_ten_b);
     problem!(DayEleven, 11, day_eleven_a, day_eleven_b);
     problem!(DayTwelve, 12, day_twelve_a, day_twelve_b);
+    problem!(DayThirteen, 13, day_thirteen_a, day_thirteen_b);
 
     PROBLEMS.with(|problems| {
         let problems = problems.borrow();
@@ -1211,4 +1212,75 @@ fn day_twelve_b(input: &'static str) -> usize {
     let xy_lcm = (x_length * y_length) / xy_gcd;
     let xyz_gcd = xy_lcm.gcd(z_length);
     (xy_lcm * z_length) / xyz_gcd
+}
+
+fn day_thirteen_a(input: &'static str) -> i64 {
+    let mut machine = intcode::Machine::<i64, _>::new(input);
+    let mut block_count = 0;
+    loop {
+        let mut output_index = 0;
+        while output_index <= 2 {
+            match machine.run() {
+                intcode::Interrupt::Halt => return block_count,
+                intcode::Interrupt::Output(2) if output_index == 2 => {
+                    block_count += 1;
+                    break;
+                }
+                intcode::Interrupt::Output(_) => {
+                    output_index += 1;
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+fn day_thirteen_b(input: &'static str) -> i64 {
+    let mut machine = intcode::Machine::<i64, _>::new(input);
+    machine.poke(0, 2);
+    let mut score = 0;
+    let mut input = 0;
+    let mut paddle_x = 0;
+    let mut ball_x;
+    loop {
+        let mut output_index = 0;
+        let mut x = 0;
+        let mut y = 0;
+        let mut tile = 0;
+        while output_index <= 2 {
+            match machine.run() {
+                intcode::Interrupt::Input => {
+                    machine.set_input(input);
+                    input = 0;
+                }
+                intcode::Interrupt::Halt => return score,
+                intcode::Interrupt::Output(value) => {
+                    match output_index {
+                        0 => x = value,
+                        1 => y = value,
+                        2 => tile = value,
+                        _ => unreachable!(),
+                    }
+                    output_index += 1;
+                }
+            }
+        }
+
+        if x == -1 && y == 0 {
+            score = tile;
+        } else {
+            match tile {
+                3 => paddle_x = x,
+                4 => {
+                    ball_x = x;
+                    if paddle_x < ball_x {
+                        input = 1;
+                    } else if paddle_x > ball_x {
+                        input = -1;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
 }
