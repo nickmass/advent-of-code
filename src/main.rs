@@ -1100,37 +1100,31 @@ fn day_twelve_a(input: &'static str) -> i64 {
     let mut velo: Vec<_> = (0..points.len()).map(|_| Point3::new(0, 0, 0)).collect();
     for _ in 0..1000 {
         for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
-            for (j, &pp) in points.iter().enumerate() {
+            for (j, pp) in points.iter().enumerate() {
                 if i == j {
                     continue;
                 }
 
-                vel.x -= if p.x > pp.x {
-                    1
-                } else if p.x < pp.x {
-                    -1
-                } else {
-                    0
+                vel.x -= match p.x.cmp(&pp.x) {
+                    std::cmp::Ordering::Greater => 1,
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
                 };
-                vel.y -= if p.y > pp.y {
-                    1
-                } else if p.y < pp.y {
-                    -1
-                } else {
-                    0
+                vel.y -= match p.y.cmp(&pp.y) {
+                    std::cmp::Ordering::Greater => 1,
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
                 };
-                vel.z -= if p.z > pp.z {
-                    1
-                } else if p.z < pp.z {
-                    -1
-                } else {
-                    0
+                vel.z -= match p.z.cmp(&pp.z) {
+                    std::cmp::Ordering::Greater => 1,
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
                 };
             }
         }
 
-        for (p, v) in points.iter_mut().zip(velo.iter()) {
-            *p = *p + *v;
+        for (p, &v) in points.iter_mut().zip(velo.iter()) {
+            *p += v;
         }
     }
 
@@ -1151,24 +1145,22 @@ fn sequence_length(initial_points: &[i64]) -> usize {
     let mut done = false;
     while !done {
         for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
-            for (j, &pp) in points.iter().enumerate() {
+            for (j, pp) in points.iter().enumerate() {
                 if i == j {
                     continue;
                 }
 
-                *vel -= if p > pp {
-                    1
-                } else if p < pp {
-                    -1
-                } else {
-                    0
+                *vel -= match p.cmp(pp) {
+                    std::cmp::Ordering::Greater => 1,
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
                 };
             }
         }
 
         done = true;
         for (p, &v) in points.iter_mut().zip(velo.iter()) {
-            *p = *p + v;
+            *p += v;
             done = done && v == 0
         }
         count += 1;
@@ -1215,72 +1207,66 @@ fn day_twelve_b(input: &'static str) -> usize {
 }
 
 fn day_thirteen_a(input: &'static str) -> i64 {
-    let mut machine = intcode::Machine::<i64, _>::new(input);
+    let mut machine = intcode::Machine::new(input);
     let mut block_count = 0;
+    let mut output_index = 0;
     loop {
-        let mut output_index = 0;
-        while output_index <= 2 {
-            match machine.run() {
-                intcode::Interrupt::Halt => return block_count,
-                intcode::Interrupt::Output(2) if output_index == 2 => {
-                    block_count += 1;
-                    break;
-                }
-                intcode::Interrupt::Output(_) => {
-                    output_index += 1;
-                }
-                _ => unreachable!(),
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Output(2) if output_index % 3 == 2 => {
+                block_count += 1;
+                output_index += 1;
             }
+            intcode::Interrupt::Output(_) => {
+                output_index += 1;
+            }
+            _ => unreachable!(),
         }
     }
+    block_count
 }
 
 fn day_thirteen_b(input: &'static str) -> i64 {
-    let mut machine = intcode::Machine::<i64, _>::new(input);
+    let mut machine = intcode::Machine::new(input);
     machine.poke(0, 2);
     let mut score = 0;
-    let mut input = 0;
     let mut paddle_x = 0;
-    let mut ball_x;
+    let mut ball_x = 0;
+    let mut output_index = 0;
+    let mut render_point = Point2::new(0, 0);
     loop {
-        let mut output_index = 0;
-        let mut x = 0;
-        let mut y = 0;
-        let mut tile = 0;
-        while output_index <= 2 {
-            match machine.run() {
-                intcode::Interrupt::Input => {
-                    machine.set_input(input);
-                    input = 0;
-                }
-                intcode::Interrupt::Halt => return score,
-                intcode::Interrupt::Output(value) => {
-                    match output_index {
-                        0 => x = value,
-                        1 => y = value,
-                        2 => tile = value,
-                        _ => unreachable!(),
-                    }
-                    output_index += 1;
-                }
+        match machine.run() {
+            intcode::Interrupt::Halt => break,
+            intcode::Interrupt::Input => {
+                let input = match paddle_x.cmp(&ball_x) {
+                    std::cmp::Ordering::Less => 1,
+                    std::cmp::Ordering::Greater => -1,
+                    std::cmp::Ordering::Equal => 0,
+                };
+                machine.set_input(input);
             }
-        }
-
-        if x == -1 && y == 0 {
-            score = tile;
-        } else {
-            match tile {
-                3 => paddle_x = x,
-                4 => {
-                    ball_x = x;
-                    if paddle_x < ball_x {
-                        input = 1;
-                    } else if paddle_x > ball_x {
-                        input = -1;
+            intcode::Interrupt::Output(tile) if output_index % 3 == 2 => {
+                if render_point == Point2::new(-1, 0) {
+                    score = tile;
+                } else {
+                    match tile {
+                        3 => paddle_x = render_point.x,
+                        4 => ball_x = render_point.x,
+                        _ => (),
                     }
                 }
-                _ => (),
+                output_index += 1;
+            }
+            intcode::Interrupt::Output(value) => {
+                match output_index % 3 {
+                    0 => render_point.x = value,
+                    1 => render_point.y = value,
+                    _ => unreachable!(),
+                }
+                output_index += 1;
             }
         }
     }
+
+    score
 }
