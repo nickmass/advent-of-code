@@ -1,14 +1,20 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 fn main() {
     println!("Day One a: {}", problem_one_a(PROBLEM_ONE));
     println!("Day One b: {}", problem_one_b(PROBLEM_ONE));
     println!("Day Two a: {}", problem_two_a(PROBLEM_TWO));
     println!("Day Two b: {}", problem_two_b(PROBLEM_TWO));
+    println!("Day Three a: {}", problem_three_a(PROBLEM_THREE));
+    println!("Day Three b: {}", problem_three_b(PROBLEM_THREE));
+    println!("Day Four a: {}", problem_four_a(PROBLEM_FOUR));
+    println!("Day Four b: {}", problem_four_b(PROBLEM_FOUR));
 }
 
 const PROBLEM_ONE: &'static str = include_str!("problems/day1.txt");
 const PROBLEM_TWO: &'static str = include_str!("problems/day2.txt");
+const PROBLEM_THREE: &'static str = include_str!("problems/day3.txt");
+const PROBLEM_FOUR: &'static str = include_str!("problems/day4.txt");
 
 fn problem_one_a(input: &'static str) -> u64 {
     let values: HashSet<u64> = input
@@ -201,4 +207,266 @@ fn parse_test() {
     let (s, n) = take_until(s, |c| c.is_digit(10)).unwrap();
     assert_eq!(s, "123");
     assert_eq!(n, "abc");
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Map {
+    Empty,
+    Tree,
+}
+
+fn problem_three_a(input: &'static str) -> u64 {
+    let lines: Vec<Vec<Map>> = input
+        .lines()
+        .map(|l| {
+            l.chars()
+                .map(|ll| match ll {
+                    '.' => Map::Empty,
+                    '#' => Map::Tree,
+                    _ => Map::Empty,
+                })
+                .collect()
+        })
+        .collect();
+
+    let offset_x = 3;
+    let offset_y = 1;
+    let mut count = 0;
+    let mut x = 0;
+    let mut y = 0;
+
+    while let Some(spot) = lines.get(y).and_then(|l| l.get(x % l.len())) {
+        if spot == &Map::Tree {
+            count += 1;
+        }
+
+        x += offset_x;
+        y += offset_y;
+    }
+
+    count
+}
+
+fn problem_three_b(input: &'static str) -> u64 {
+    let lines: Vec<Vec<Map>> = input
+        .lines()
+        .map(|l| {
+            l.chars()
+                .map(|ll| match ll {
+                    '.' => Map::Empty,
+                    '#' => Map::Tree,
+                    _ => Map::Empty,
+                })
+                .collect()
+        })
+        .collect();
+
+    let mut total = 1;
+
+    let slopes = vec![(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)];
+
+    for (offset_x, offset_y) in &slopes {
+        let mut count = 0;
+        let mut x = 0;
+        let mut y = 0;
+
+        while let Some(spot) = lines.get(y).and_then(|l| l.get(x % l.len())) {
+            if spot == &Map::Tree {
+                count += 1;
+            }
+
+            x += offset_x;
+            y += offset_y;
+        }
+
+        total *= count;
+    }
+
+    total
+}
+
+fn problem_four_a(input: &'static str) -> u64 {
+    let records = input.split("\n\n");
+
+    let passports: Vec<HashMap<_, _>> = records
+        .map(|r| {
+            r.split_whitespace()
+                .flat_map(|kv| {
+                    let mut splits = kv.split(':');
+                    let key = splits.next();
+                    let value = splits.next();
+
+                    key.zip(value)
+                })
+                .collect()
+        })
+        .collect();
+
+    let required_fields = ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"];
+
+    let mut valid_count = 0;
+    'outer: for passport in passports {
+        for &field in &required_fields {
+            if !passport.contains_key(field) {
+                continue 'outer;
+            }
+        }
+        valid_count += 1;
+    }
+
+    valid_count
+}
+
+struct PassportYearValidator {
+    min: u64,
+    max: u64,
+}
+
+impl PassportYearValidator {
+    fn new(min: u64, max: u64) -> Self {
+        Self { min, max }
+    }
+}
+
+impl PassportValidator for PassportYearValidator {
+    fn validate(&self, val: &str) -> bool {
+        let n: Result<u64, _> = val.parse();
+        if let Ok(n) = n {
+            n >= self.min && n <= self.max
+        } else {
+            false
+        }
+    }
+}
+
+struct PassportHeightValidator;
+
+impl PassportHeightValidator {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl PassportValidator for PassportHeightValidator {
+    fn validate(&self, val: &str) -> bool {
+        let parsed = take_u64(val);
+        if let Some((unit, num)) = parsed {
+            if unit == "in" {
+                num >= 59 && num <= 76
+            } else if unit == "cm" {
+                num >= 150 && num <= 193
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
+struct PassportHairColorValidator;
+
+impl PassportHairColorValidator {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl PassportValidator for PassportHairColorValidator {
+    fn validate(&self, val: &str) -> bool {
+        let parsed = take_char(val);
+        if let Some((s, '#')) = parsed {
+            s.len() == 6 && s.chars().all(|c| c.is_digit(16))
+        } else {
+            false
+        }
+    }
+}
+
+struct PassportEyeColorValidator;
+
+impl PassportEyeColorValidator {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl PassportValidator for PassportEyeColorValidator {
+    fn validate(&self, val: &str) -> bool {
+        match val {
+            "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" => true,
+            _ => false,
+        }
+    }
+}
+
+struct PassportIdValidator;
+
+impl PassportIdValidator {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl PassportValidator for PassportIdValidator {
+    fn validate(&self, val: &str) -> bool {
+        val.len() == 9 && val.chars().all(|c| c.is_digit(10))
+    }
+}
+
+trait PassportValidator {
+    fn validate(&self, val: &str) -> bool;
+}
+
+fn problem_four_b(input: &'static str) -> u64 {
+    let records = input.split("\n\n");
+
+    let passports: Vec<HashMap<_, _>> = records
+        .map(|r| {
+            r.split_whitespace()
+                .flat_map(|kv| {
+                    let mut splits = kv.split(':');
+                    let key = splits.next();
+                    let value = splits.next();
+
+                    key.zip(value)
+                })
+                .collect()
+        })
+        .collect();
+
+    let birth_year = PassportYearValidator::new(1920, 2002);
+    let issue_year = PassportYearValidator::new(2010, 2020);
+    let expire_year = PassportYearValidator::new(2020, 2030);
+    let height = PassportHeightValidator::new();
+    let hair_color = PassportHairColorValidator::new();
+    let eye_color = PassportEyeColorValidator::new();
+    let passport_id = PassportIdValidator::new();
+
+    let required_fields: &[(&str, &dyn PassportValidator)] = &[
+        ("byr", &birth_year),
+        ("iyr", &issue_year),
+        ("eyr", &expire_year),
+        ("hgt", &height),
+        ("hcl", &hair_color),
+        ("ecl", &eye_color),
+        ("pid", &passport_id),
+    ];
+
+    let mut valid_count = 0;
+    'outer: for passport in passports {
+        for &(key, validator) in required_fields {
+            if let Some(value) = passport.get(key) {
+                if !validator.validate(value) {
+                    continue 'outer;
+                }
+            } else {
+                continue 'outer;
+            }
+        }
+
+        valid_count += 1;
+    }
+
+    valid_count
 }
