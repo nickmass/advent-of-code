@@ -9,12 +9,15 @@ fn main() {
     println!("Day Three b: {}", problem_three_b(PROBLEM_THREE));
     println!("Day Four a: {}", problem_four_a(PROBLEM_FOUR));
     println!("Day Four b: {}", problem_four_b(PROBLEM_FOUR));
+    println!("Day Five a: {}", problem_five_a(PROBLEM_FIVE));
+    println!("Day Five b: {}", problem_five_b(PROBLEM_FIVE));
 }
 
 const PROBLEM_ONE: &'static str = include_str!("problems/day1.txt");
 const PROBLEM_TWO: &'static str = include_str!("problems/day2.txt");
 const PROBLEM_THREE: &'static str = include_str!("problems/day3.txt");
 const PROBLEM_FOUR: &'static str = include_str!("problems/day4.txt");
+const PROBLEM_FIVE: &'static str = include_str!("problems/day5.txt");
 
 fn problem_one_a(input: &'static str) -> u64 {
     let values: HashSet<u64> = input
@@ -330,7 +333,7 @@ impl PassportYearValidator {
 
 impl PassportValidator for PassportYearValidator {
     fn validate(&self, val: &str) -> bool {
-        let n: Result<u64, _> = val.parse();
+        let n = val.parse::<u64>();
         if let Ok(n) = n {
             n >= self.min && n <= self.max
         } else {
@@ -340,38 +343,18 @@ impl PassportValidator for PassportYearValidator {
 }
 
 struct PassportHeightValidator;
-
-impl PassportHeightValidator {
-    fn new() -> Self {
-        Self
-    }
-}
-
 impl PassportValidator for PassportHeightValidator {
     fn validate(&self, val: &str) -> bool {
         let parsed = take_u64(val);
-        if let Some((unit, num)) = parsed {
-            if unit == "in" {
-                num >= 59 && num <= 76
-            } else if unit == "cm" {
-                num >= 150 && num <= 193
-            } else {
-                false
-            }
-        } else {
-            false
+        match parsed {
+            Some(("in", num)) if num >= 59 && num <= 76 => true,
+            Some(("cm", num)) if num >= 150 && num <= 193 => true,
+            _ => false,
         }
     }
 }
 
 struct PassportHairColorValidator;
-
-impl PassportHairColorValidator {
-    fn new() -> Self {
-        Self
-    }
-}
-
 impl PassportValidator for PassportHairColorValidator {
     fn validate(&self, val: &str) -> bool {
         let parsed = take_char(val);
@@ -384,13 +367,6 @@ impl PassportValidator for PassportHairColorValidator {
 }
 
 struct PassportEyeColorValidator;
-
-impl PassportEyeColorValidator {
-    fn new() -> Self {
-        Self
-    }
-}
-
 impl PassportValidator for PassportEyeColorValidator {
     fn validate(&self, val: &str) -> bool {
         match val {
@@ -401,13 +377,6 @@ impl PassportValidator for PassportEyeColorValidator {
 }
 
 struct PassportIdValidator;
-
-impl PassportIdValidator {
-    fn new() -> Self {
-        Self
-    }
-}
-
 impl PassportValidator for PassportIdValidator {
     fn validate(&self, val: &str) -> bool {
         val.len() == 9 && val.chars().all(|c| c.is_digit(10))
@@ -438,19 +407,15 @@ fn problem_four_b(input: &'static str) -> u64 {
     let birth_year = PassportYearValidator::new(1920, 2002);
     let issue_year = PassportYearValidator::new(2010, 2020);
     let expire_year = PassportYearValidator::new(2020, 2030);
-    let height = PassportHeightValidator::new();
-    let hair_color = PassportHairColorValidator::new();
-    let eye_color = PassportEyeColorValidator::new();
-    let passport_id = PassportIdValidator::new();
 
     let required_fields: &[(&str, &dyn PassportValidator)] = &[
         ("byr", &birth_year),
         ("iyr", &issue_year),
         ("eyr", &expire_year),
-        ("hgt", &height),
-        ("hcl", &hair_color),
-        ("ecl", &eye_color),
-        ("pid", &passport_id),
+        ("hgt", &PassportHeightValidator),
+        ("hcl", &PassportHairColorValidator),
+        ("ecl", &PassportEyeColorValidator),
+        ("pid", &PassportIdValidator),
     ];
 
     let mut valid_count = 0;
@@ -469,4 +434,67 @@ fn problem_four_b(input: &'static str) -> u64 {
     }
 
     valid_count
+}
+
+fn problem_five_a(input: &'static str) -> u64 {
+    let lines = input.lines();
+
+    let mut max = usize::MIN;
+
+    for line in lines {
+        let mut row_range = 0..128;
+        let mut col_range = 0..8;
+
+        for c in line.chars() {
+            match c {
+                'F' => row_range = row_range.start..row_range.end - (row_range.len() / 2),
+                'B' => row_range = row_range.start + row_range.len() / 2..row_range.end,
+                'L' => col_range = col_range.start..col_range.end - (col_range.len() / 2),
+                'R' => col_range = col_range.start + col_range.len() / 2..col_range.end,
+                _ => unreachable!(),
+            }
+        }
+
+        let val = row_range.start * 8 + col_range.start;
+        max = max.max(val);
+    }
+
+    max as u64
+}
+
+fn problem_five_b(input: &'static str) -> u64 {
+    let lines = input.lines();
+
+    let mut map = HashSet::new();
+    let mut max = usize::MIN;
+    let mut min = usize::MAX;
+
+    for line in lines {
+        let mut row_range = 0..128;
+        let mut col_range = 0..8;
+
+        for c in line.chars() {
+            match c {
+                'F' => row_range = row_range.start..row_range.end - (row_range.len() / 2),
+                'B' => row_range = row_range.start + row_range.len() / 2..row_range.end,
+                'L' => col_range = col_range.start..col_range.end - (col_range.len() / 2),
+                'R' => col_range = col_range.start + col_range.len() / 2..col_range.end,
+                _ => unreachable!(),
+            }
+        }
+
+        let val = row_range.start * 8 + col_range.start;
+
+        map.insert(val);
+        max = max.max(val);
+        min = min.min(val);
+    }
+
+    for n in min..max {
+        if !map.contains(&n) {
+            return n as u64;
+        }
+    }
+
+    0
 }
