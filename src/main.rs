@@ -1,4 +1,4 @@
-use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
+use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
 fn main() {
     let downloader = InputDownloader::new();
@@ -13,6 +13,7 @@ fn main() {
         (5, problem_five_a, problem_five_b),
         (6, problem_six_a, problem_six_b),
         (7, problem_seven_a, problem_seven_b),
+        (8, problem_eight_a, problem_eight_b),
     ];
 
     for solution in solutions {
@@ -39,8 +40,8 @@ fn run_day(
             let b = part_b(&input);
             let time_b = time_b.elapsed();
 
-            println!("Day {} a:{:>25}{:>10}ms", day, a, time_a.as_millis());
-            println!("Day {} b:{:>25}{:>10}ms", day, b, time_b.as_millis());
+            println!("{}-1:{:>25}{:>10}ms", day, a, time_a.as_millis());
+            println!("{}-2:{:>25}{:>10}ms", day, b, time_b.as_millis());
         }
         Err(error) => {
             eprintln!(
@@ -540,7 +541,7 @@ fn problem_five_a(input: &str) -> u64 {
 fn problem_five_b(input: &str) -> u64 {
     let lines = input.lines();
 
-    let mut map = HashSet::default();
+    let mut map = HashSet::new();
     let mut max = usize::MIN;
     let mut min = usize::MAX;
 
@@ -578,7 +579,7 @@ fn problem_six_a(input: &str) -> u64 {
     let questions: usize = input
         .split("\n\n")
         .map(|ls| {
-            let mut set = HashSet::default();
+            let mut set = HashSet::new();
             for c in ls.chars() {
                 if !c.is_whitespace() {
                     set.insert(c);
@@ -596,7 +597,7 @@ fn problem_six_b(input: &str) -> u64 {
         .split("\n\n")
         .map(|ls| {
             let mut line_count = 0;
-            let mut set = HashMap::default();
+            let mut set = HashMap::new();
             for line in ls.lines() {
                 for c in line.chars() {
                     set.entry(c).and_modify(|co| *co += 1).or_insert(1);
@@ -616,7 +617,7 @@ fn problem_seven_a(input: &str) -> u64 {
         .lines()
         .map(|l| {
             let splits: Vec<_> = l.split_whitespace().collect();
-            let target_color = format!("{} {}", splits[0], splits[1]);
+            let target_color = (splits[0], splits[1]);
             let children = if l.ends_with("no other bags.") {
                 Vec::new()
             } else {
@@ -624,7 +625,7 @@ fn problem_seven_a(input: &str) -> u64 {
                 let mut children = Vec::new();
                 while i + 3 < splits.len() {
                     let n: u64 = splits[i].parse().unwrap();
-                    let c = format!("{} {}", splits[i + 1], splits[i + 2]);
+                    let c = (splits[i + 1], splits[i + 2]);
                     i += 4;
                     children.push((c, n));
                 }
@@ -635,22 +636,24 @@ fn problem_seven_a(input: &str) -> u64 {
         })
         .collect();
 
-    let mut matches = HashSet::default();
-    let mut no_match = HashSet::default();
+    let mut matches = HashSet::new();
+    let mut no_match = HashSet::new();
 
-    matches.insert("shiny gold");
+    matches.insert(("shiny", "gold"));
 
     let mut list = Vec::with_capacity(bags.len());
     'outer: for (color, children) in &bags {
-        if matches.contains(color.as_str()) {
+        if matches.contains(color) || no_match.contains(color) {
             continue;
         }
+        let mut checked = HashSet::new();
         list.clear();
         list.extend(children.iter().map(|(child, _num)| child));
 
         while let Some(child_color) = list.pop() {
-            if matches.contains(child_color.as_str()) {
-                matches.insert(color);
+            checked.insert(child_color);
+            if matches.contains(child_color) {
+                matches.insert(*color);
                 continue 'outer;
             } else if !no_match.contains(child_color) {
                 let next_parent = bags.get(child_color).unwrap();
@@ -661,6 +664,9 @@ fn problem_seven_a(input: &str) -> u64 {
         }
 
         no_match.insert(color);
+        for child in checked {
+            no_match.insert(child);
+        }
     }
 
     //subtract one for gold bag
@@ -708,4 +714,108 @@ fn search_bags<S: AsRef<str>>(
     }
 
     sum
+}
+
+#[derive(Debug)]
+struct EmuState {
+    acc: i64,
+    ip: usize,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Instruction {
+    Nop(i64),
+    Acc(i64),
+    Jmp(i64),
+}
+
+fn problem_eight_a(input: &str) -> u64 {
+    let program: Vec<_> = input
+        .lines()
+        .map(|l| {
+            let inst = &l[0..3];
+            let n = l[4..].parse().unwrap();
+            match inst {
+                "nop" => Instruction::Nop(n),
+                "acc" => Instruction::Acc(n),
+                "jmp" => Instruction::Jmp(n),
+                _ => unreachable!("invalid program"),
+            }
+        })
+        .collect();
+
+    let mut hit_instrs = HashSet::new();
+    let mut state = EmuState { acc: 0, ip: 0 };
+
+    while !hit_instrs.contains(&state.ip) {
+        hit_instrs.insert(state.ip);
+        let inst = program[state.ip];
+        match inst {
+            Instruction::Nop(_) => {
+                state.ip += 1;
+            }
+            Instruction::Acc(n) => {
+                state.acc += n;
+                state.ip += 1;
+            }
+            Instruction::Jmp(n) => state.ip = (state.ip as i64 + n) as usize,
+        }
+    }
+
+    state.acc as u64
+}
+
+fn problem_eight_b(input: &str) -> u64 {
+    let program: Vec<_> = input
+        .lines()
+        .map(|l| {
+            let inst = &l[0..3];
+            let n = l[4..].parse().unwrap();
+            match inst {
+                "nop" => Instruction::Nop(n),
+                "acc" => Instruction::Acc(n),
+                "jmp" => Instruction::Jmp(n),
+                _ => unreachable!("invalid program"),
+            }
+        })
+        .collect();
+
+    let mut changed_instrs = HashSet::new();
+    let mut hit_instrs = HashSet::new();
+    loop {
+        let mut changed = false;
+        let mut state = EmuState { acc: 0, ip: 0 };
+        hit_instrs.clear();
+        while !hit_instrs.contains(&state.ip) {
+            if state.ip == program.len() {
+                return state.acc as u64;
+            }
+            hit_instrs.insert(state.ip);
+            let inst = program[state.ip];
+            match inst {
+                Instruction::Nop(n) => {
+                    if !changed_instrs.contains(&state.ip) && !changed {
+                        changed_instrs.insert(state.ip);
+                        changed = true;
+                        state.ip = (state.ip as i64 + n) as usize;
+                    } else {
+                        state.ip += 1;
+                    }
+                }
+                Instruction::Acc(n) => {
+                    state.acc += n;
+                    state.ip += 1;
+                }
+                Instruction::Jmp(n) => {
+                    if !changed_instrs.contains(&state.ip) && !changed {
+                        changed_instrs.insert(state.ip);
+                        changed = true;
+                        state.ip += 1;
+                    } else {
+                        state.ip = (state.ip as i64 + n) as usize;
+                    }
+                }
+            }
+        }
+    }
 }
