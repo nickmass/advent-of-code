@@ -1,25 +1,100 @@
-use std::collections::{HashMap, HashSet};
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 fn main() {
-    println!("Day One a: {}", problem_one_a(PROBLEM_ONE));
-    println!("Day One b: {}", problem_one_b(PROBLEM_ONE));
-    println!("Day Two a: {}", problem_two_a(PROBLEM_TWO));
-    println!("Day Two b: {}", problem_two_b(PROBLEM_TWO));
-    println!("Day Three a: {}", problem_three_a(PROBLEM_THREE));
-    println!("Day Three b: {}", problem_three_b(PROBLEM_THREE));
-    println!("Day Four a: {}", problem_four_a(PROBLEM_FOUR));
-    println!("Day Four b: {}", problem_four_b(PROBLEM_FOUR));
-    println!("Day Five a: {}", problem_five_a(PROBLEM_FIVE));
-    println!("Day Five b: {}", problem_five_b(PROBLEM_FIVE));
+    let downloader = InputDownloader::new();
+
+    let event = 2020;
+
+    let solutions: Vec<(u32, ProblemFunc, ProblemFunc)> = vec![
+        (1, problem_one_a, problem_one_b),
+        (2, problem_two_a, problem_two_b),
+        (3, problem_three_a, problem_three_b),
+        (4, problem_four_a, problem_four_b),
+        (5, problem_five_a, problem_five_b),
+        (6, problem_six_a, problem_six_b),
+        (7, problem_seven_a, problem_seven_b),
+    ];
+
+    for solution in solutions {
+        run_day(&downloader, event, solution.0, solution.1, solution.2);
+    }
 }
 
-const PROBLEM_ONE: &'static str = include_str!("problems/day1.txt");
-const PROBLEM_TWO: &'static str = include_str!("problems/day2.txt");
-const PROBLEM_THREE: &'static str = include_str!("problems/day3.txt");
-const PROBLEM_FOUR: &'static str = include_str!("problems/day4.txt");
-const PROBLEM_FIVE: &'static str = include_str!("problems/day5.txt");
+type ProblemFunc = fn(&str) -> u64;
 
-fn problem_one_a(input: &'static str) -> u64 {
+fn run_day(
+    downloader: &InputDownloader,
+    event: u32,
+    day: u32,
+    part_a: ProblemFunc,
+    part_b: ProblemFunc,
+) {
+    match downloader.download_input_if_absent(event, day) {
+        Ok(input) => {
+            let time_a = std::time::Instant::now();
+            let a = part_a(&input);
+            let time_a = time_a.elapsed();
+
+            let time_b = std::time::Instant::now();
+            let b = part_b(&input);
+            let time_b = time_b.elapsed();
+
+            println!("Day {} a:{:>25}{:>10}ms", day, a, time_a.as_millis());
+            println!("Day {} b:{:>25}{:>10}ms", day, b, time_b.as_millis());
+        }
+        Err(error) => {
+            eprintln!(
+                "unable to get input for '{}' day '{}'. {:?}",
+                event, day, error
+            );
+            std::process::exit(1)
+        }
+    }
+}
+
+struct InputDownloader {
+    session_key: Option<String>,
+    http_client: reqwest::blocking::Client,
+}
+
+impl InputDownloader {
+    fn new() -> Self {
+        let session_key = std::fs::read_to_string("./.session-key").ok();
+        let http_client = reqwest::blocking::Client::new();
+
+        Self {
+            session_key,
+            http_client,
+        }
+    }
+
+    fn download_input_if_absent(
+        &self,
+        event: u32,
+        day: u32,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let path = std::path::PathBuf::from(format!("problems/{}/day{}.txt", event, day));
+        if path.exists() {
+            let input = std::fs::read_to_string(&path)?;
+            Ok(input)
+        } else {
+            eprintln!("downloading {} day {}.", event, day);
+            let session_key = self.session_key.as_ref().ok_or(".session-key not found")?;
+            let url = format!("https://adventofcode.com/{}/day/{}/input", event, day);
+            let req = self.http_client.get(&url);
+            let req = req.header("cookie", format!("session={}", session_key));
+            let res = req.send()?;
+            let res = res.error_for_status()?;
+            let input = res.text()?;
+            std::fs::create_dir_all(&path.parent().expect("problem path should have parent"))?;
+            std::fs::write(&path, &input)?;
+
+            Ok(input)
+        }
+    }
+}
+
+fn problem_one_a(input: &str) -> u64 {
     let values: HashSet<u64> = input
         .lines()
         .map(str::parse)
@@ -36,7 +111,7 @@ fn problem_one_a(input: &'static str) -> u64 {
     0
 }
 
-fn problem_one_b(input: &'static str) -> u64 {
+fn problem_one_b(input: &str) -> u64 {
     let values: HashSet<u64> = input
         .lines()
         .map(str::parse)
@@ -85,7 +160,7 @@ impl<'a> PwLine<'a> {
     }
 }
 
-fn problem_two_a(input: &'static str) -> u64 {
+fn problem_two_a(input: &str) -> u64 {
     let lines: Vec<_> = input.lines().flat_map(PwLine::from_str).collect();
 
     let mut valid = 0;
@@ -106,7 +181,7 @@ fn problem_two_a(input: &'static str) -> u64 {
     valid
 }
 
-fn problem_two_b(input: &'static str) -> u64 {
+fn problem_two_b(input: &str) -> u64 {
     let lines: Vec<_> = input.lines().flat_map(PwLine::from_str).collect();
 
     let mut valid = 0;
@@ -218,7 +293,7 @@ enum Map {
     Tree,
 }
 
-fn problem_three_a(input: &'static str) -> u64 {
+fn problem_three_a(input: &str) -> u64 {
     let lines: Vec<Vec<Map>> = input
         .lines()
         .map(|l| {
@@ -250,7 +325,7 @@ fn problem_three_a(input: &'static str) -> u64 {
     count
 }
 
-fn problem_three_b(input: &'static str) -> u64 {
+fn problem_three_b(input: &str) -> u64 {
     let lines: Vec<Vec<Map>> = input
         .lines()
         .map(|l| {
@@ -288,7 +363,7 @@ fn problem_three_b(input: &'static str) -> u64 {
     total
 }
 
-fn problem_four_a(input: &'static str) -> u64 {
+fn problem_four_a(input: &str) -> u64 {
     let records = input.split("\n\n");
 
     let passports: Vec<HashMap<_, _>> = records
@@ -387,7 +462,7 @@ trait PassportValidator {
     fn validate(&self, val: &str) -> bool;
 }
 
-fn problem_four_b(input: &'static str) -> u64 {
+fn problem_four_b(input: &str) -> u64 {
     let records = input.split("\n\n");
 
     let passports: Vec<HashMap<_, _>> = records
@@ -436,7 +511,7 @@ fn problem_four_b(input: &'static str) -> u64 {
     valid_count
 }
 
-fn problem_five_a(input: &'static str) -> u64 {
+fn problem_five_a(input: &str) -> u64 {
     let lines = input.lines();
 
     let mut max = usize::MIN;
@@ -462,10 +537,10 @@ fn problem_five_a(input: &'static str) -> u64 {
     max as u64
 }
 
-fn problem_five_b(input: &'static str) -> u64 {
+fn problem_five_b(input: &str) -> u64 {
     let lines = input.lines();
 
-    let mut map = HashSet::new();
+    let mut map = HashSet::default();
     let mut max = usize::MIN;
     let mut min = usize::MAX;
 
@@ -497,4 +572,140 @@ fn problem_five_b(input: &'static str) -> u64 {
     }
 
     0
+}
+
+fn problem_six_a(input: &str) -> u64 {
+    let questions: usize = input
+        .split("\n\n")
+        .map(|ls| {
+            let mut set = HashSet::default();
+            for c in ls.chars() {
+                if !c.is_whitespace() {
+                    set.insert(c);
+                }
+            }
+            set.len()
+        })
+        .sum();
+
+    questions as u64
+}
+
+fn problem_six_b(input: &str) -> u64 {
+    let questions: usize = input
+        .split("\n\n")
+        .map(|ls| {
+            let mut line_count = 0;
+            let mut set = HashMap::default();
+            for line in ls.lines() {
+                for c in line.chars() {
+                    set.entry(c).and_modify(|co| *co += 1).or_insert(1);
+                }
+                line_count += 1;
+            }
+
+            set.iter().filter(|(_k, v)| **v == line_count).count()
+        })
+        .sum();
+
+    questions as u64
+}
+
+fn problem_seven_a(input: &str) -> u64 {
+    let bags: HashMap<_, _> = input
+        .lines()
+        .map(|l| {
+            let splits: Vec<_> = l.split_whitespace().collect();
+            let target_color = format!("{} {}", splits[0], splits[1]);
+            let children = if l.ends_with("no other bags.") {
+                Vec::new()
+            } else {
+                let mut i = 4;
+                let mut children = Vec::new();
+                while i + 3 < splits.len() {
+                    let n: u64 = splits[i].parse().unwrap();
+                    let c = format!("{} {}", splits[i + 1], splits[i + 2]);
+                    i += 4;
+                    children.push((c, n));
+                }
+                children
+            };
+
+            (target_color, children)
+        })
+        .collect();
+
+    let mut matches = HashSet::default();
+    let mut no_match = HashSet::default();
+
+    matches.insert("shiny gold");
+
+    let mut list = Vec::with_capacity(bags.len());
+    'outer: for (color, children) in &bags {
+        if matches.contains(color.as_str()) {
+            continue;
+        }
+        list.clear();
+        list.extend(children.iter().map(|(child, _num)| child));
+
+        while let Some(child_color) = list.pop() {
+            if matches.contains(child_color.as_str()) {
+                matches.insert(color);
+                continue 'outer;
+            } else if !no_match.contains(child_color) {
+                let next_parent = bags.get(child_color).unwrap();
+                for (child, _num) in next_parent {
+                    list.push(child);
+                }
+            }
+        }
+
+        no_match.insert(color);
+    }
+
+    //subtract one for gold bag
+    (matches.len() - 1) as u64
+}
+
+fn problem_seven_b(input: &str) -> u64 {
+    let bags: HashMap<_, _> = input
+        .lines()
+        .map(|l| {
+            let splits: Vec<_> = l.split_whitespace().collect();
+            let target_color = format!("{} {}", splits[0], splits[1]);
+            let children = if l.ends_with("no other bags.") {
+                Vec::new()
+            } else {
+                let mut i = 4;
+                let mut children = Vec::new();
+                while i + 3 < splits.len() {
+                    let n: u64 = splits[i].parse().unwrap();
+                    let c = format!("{} {}", splits[i + 1], splits[i + 2]);
+                    i += 4;
+                    children.push((c, n));
+                }
+                children
+            };
+
+            (target_color, children)
+        })
+        .collect();
+
+    //subtract one for gold bag
+    search_bags(&bags, "shiny gold", 1) - 1
+}
+
+fn search_bags<S: AsRef<str>>(
+    bags: &HashMap<String, Vec<(String, u64)>>,
+    bag: S,
+    count: u64,
+) -> u64 {
+    let bag = bags.get(bag.as_ref()).unwrap();
+
+    let mut sum = count;
+    for (k, v) in bag {
+        sum += search_bags(&bags, k, v * count);
+    }
+
+    sum
 }
