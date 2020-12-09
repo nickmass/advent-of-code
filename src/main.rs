@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 mod solutions;
 
@@ -47,7 +48,7 @@ fn main() {
     match event {
         EventSelection::Specific(event) => {
             if let Some(days) = events.get(&event) {
-                run_event(&downloader, event, &days)
+                run_event(&downloader, event, &days);
             } else {
                 eprintln!("event '{}' not configured", event);
                 std::process::exit(1)
@@ -57,11 +58,15 @@ fn main() {
             let mut events: Vec<_> = events.into_iter().collect();
             events.sort_by_key(|e| e.0);
 
+            let mut overall_duration = Duration::new(0, 0);
+
             for event in &events {
-                run_event(&downloader, event.0, &event.1);
+                overall_duration += run_event(&downloader, event.0, &event.1);
                 println!();
                 println!();
             }
+
+            println!("Overall duration{:>24}ms", overall_duration.as_millis())
         }
     }
 }
@@ -95,38 +100,35 @@ macro_rules! solution {
     };
 }
 
-fn run_event(downloader: &InputDownloader, event: u32, days: &[Solution]) {
+fn run_event(downloader: &InputDownloader, event: u32, days: &[Solution]) -> Duration {
     println!("Advent of Code - {}", event);
     println!();
+
+    let mut total_duration = Duration::new(0, 0);
+
     for day in days {
-        run_day(downloader, event, day)
+        total_duration += run_day(downloader, event, day)
     }
+    println!("Total duration{:>26}ms", total_duration.as_millis());
+
+    total_duration
 }
 
-fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) {
+fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) -> Duration {
     match downloader.download_input_if_absent(event, day.day) {
         Ok(input) => {
-            let time_a = std::time::Instant::now();
-            let a = (day.part_one)(&input).to_string();
-            let time_a = time_a.elapsed();
+            let time_part_one = Instant::now();
+            let part_one = (day.part_one)(&input).to_string();
+            let time_part_one = time_part_one.elapsed();
 
-            let time_b = std::time::Instant::now();
-            let b = (day.part_two)(&input).to_string();
-            let time_b = time_b.elapsed();
+            let time_part_two = Instant::now();
+            let part_two = (day.part_two)(&input).to_string();
+            let time_part_two = time_part_two.elapsed();
 
-            if a.len() <= 25 {
-                println!("{:>2}-1:{:>25}{:>10}ms", day.day, a, time_a.as_millis());
-            } else {
-                println!("{:>2}-1:{:>25}{:>10}ms", day.day, "", time_a.as_millis());
-                println!("{}", a);
-            }
+            print_line(day.day, 1, part_one, time_part_one);
+            print_line(day.day, 2, part_two, time_part_two);
 
-            if b.len() <= 25 {
-                println!("{:>2}-2:{:>25}{:>10}ms", day.day, b, time_b.as_millis());
-            } else {
-                println!("{:>2}-2:{:>25}{:>10}ms", day.day, "", time_b.as_millis());
-                println!("{}", b);
-            }
+            time_part_one + time_part_two
         }
         Err(error) => {
             eprintln!(
@@ -135,6 +137,27 @@ fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) {
             );
             std::process::exit(1)
         }
+    }
+}
+
+fn print_line(day: u32, part: u32, answer: String, duration: Duration) {
+    if answer.len() <= 25 {
+        println!(
+            "{:>2}-{}:{:>25}{:>10}ms",
+            day,
+            part,
+            answer,
+            duration.as_millis()
+        );
+    } else {
+        println!(
+            "{:>2}-{}:{:>25}{:>10}ms",
+            day,
+            part,
+            "",
+            duration.as_millis()
+        );
+        println!("{}", answer);
     }
 }
 

@@ -1,5 +1,7 @@
 use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
+use std::collections::VecDeque;
+
 use crate::{solution, Solution};
 
 pub fn days() -> Vec<Solution> {
@@ -12,6 +14,7 @@ pub fn days() -> Vec<Solution> {
         solution!(6, day_six_a, day_six_b),
         solution!(7, day_seven_a, day_seven_b),
         solution!(8, day_eight_a, day_eight_b),
+        solution!(9, day_nine_a, day_nine_b),
     ]
 }
 
@@ -738,4 +741,62 @@ fn day_eight_b(input: &str) -> u64 {
             }
         }
     }
+}
+
+fn day_nine_a(input: &str) -> u64 {
+    let mut lines = input.lines().filter_map(|p| p.parse::<u64>().ok());
+
+    let mut preamble: VecDeque<u64> = lines.by_ref().take(25).collect();
+
+    for n in lines {
+        let mut valid = false;
+        'outer: for a in &preamble {
+            for b in &preamble {
+                if a == b {
+                    continue;
+                }
+                if a + b == n {
+                    valid = true;
+                    break 'outer;
+                }
+            }
+        }
+
+        if !valid {
+            return n;
+        }
+        preamble.pop_front();
+        preamble.push_back(n);
+    }
+
+    panic!("invalid input")
+}
+
+fn day_nine_b(input: &str) -> u64 {
+    let target = day_nine_a(input);
+    let nums = input.lines().filter_map(|p| p.parse::<u64>().ok());
+
+    let mut range = VecDeque::new();
+    let mut sum = 0;
+    for n in nums {
+        sum += n;
+        range.push_back(n);
+
+        while sum > target {
+            if let Some(n) = range.pop_front() {
+                sum -= n;
+            }
+        }
+
+        if sum == target {
+            let min = range.iter().min();
+            let max = range.iter().max();
+
+            if let Some((min, max)) = min.zip(max) {
+                return min + max;
+            }
+        }
+    }
+
+    panic!("invalid input")
 }
