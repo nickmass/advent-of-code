@@ -1,6 +1,8 @@
 use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
+use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::rc::Rc;
 
 use crate::{solution, Solution};
 
@@ -15,6 +17,7 @@ pub fn days() -> Vec<Solution> {
         solution!(7, day_seven_a, day_seven_b),
         solution!(8, day_eight_a, day_eight_b),
         solution!(9, day_nine_a, day_nine_b),
+        solution!(10, day_ten_a, day_ten_b),
     ]
 }
 
@@ -799,4 +802,223 @@ fn day_nine_b(input: &str) -> u64 {
     }
 
     panic!("invalid input")
+}
+
+fn day_ten_a(input: &str) -> u32 {
+    let mut adapters: HashSet<u32> = input.lines().filter_map(|l| l.parse().ok()).collect();
+    let built_in = adapters.iter().copied().max().unwrap_or(0) + 3;
+
+    adapters.insert(built_in);
+
+    let mut n = 1;
+    let mut last_n = 0;
+    let mut diffs = HashMap::new();
+    while adapters.len() != 0 {
+        if adapters.contains(&n) {
+            diffs.entry(n - last_n).and_modify(|c| *c += 1).or_insert(1);
+            last_n = n;
+            adapters.remove(&n);
+            n += 1;
+        } else {
+            n += 1;
+            if n - last_n > 3 {
+                panic!("wrong input");
+            }
+        }
+    }
+
+    let ones = diffs.get(&1).copied().unwrap_or(0);
+    let threes = diffs.get(&3).copied().unwrap_or(0);
+
+    ones * threes
+}
+
+#[test]
+fn test_day_ten_a() {
+    let inp = r#"16
+10
+15
+5
+1
+11
+7
+19
+6
+12
+4"#;
+    let res = day_ten_a(inp);
+    assert_eq!(res, 7 * 5);
+
+    let inp = r#"28
+33
+18
+42
+31
+14
+46
+20
+48
+47
+24
+23
+49
+45
+19
+38
+39
+11
+1
+32
+25
+35
+8
+17
+7
+9
+4
+2
+34
+10
+3"#;
+    let res = day_ten_a(inp);
+    assert_eq!(res, 22 * 10);
+}
+
+#[derive(Debug)]
+struct Node {
+    value: u32,
+    left: Option<Rc<RefCell<Node>>>,
+    middle: Option<Rc<RefCell<Node>>>,
+    right: Option<Rc<RefCell<Node>>>,
+    shortcut: u64,
+}
+
+struct NodeCollection {
+    map: HashMap<u32, Rc<RefCell<Node>>>,
+}
+
+impl NodeCollection {
+    fn new() -> Self {
+        let nodes = Node {
+            value: 0,
+            left: None,
+            middle: None,
+            right: None,
+            shortcut: 1,
+        };
+        let root_node = Rc::new(RefCell::new(nodes));
+        let mut map = HashMap::new();
+        map.insert(0, root_node);
+
+        Self { map }
+    }
+
+    fn insert(&mut self, value: u32) -> bool {
+        let mut node = Node {
+            value,
+            left: None,
+            middle: None,
+            right: None,
+            shortcut: 0,
+        };
+
+        let mut had_parent = false;
+
+        let mut shortcut = 0;
+        for n in 1..=3 {
+            if n > value {
+                continue;
+            }
+            let parent_value = value - n;
+            if let Some(parent) = self.map.get_mut(&parent_value) {
+                had_parent = true;
+                shortcut += parent.borrow().shortcut;
+                match n {
+                    1 => node.left = Some(parent.clone()),
+                    2 => node.middle = Some(parent.clone()),
+                    3 => node.right = Some(parent.clone()),
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        if had_parent {
+            node.shortcut = shortcut;
+            self.map.insert(value, Rc::new(RefCell::new(node)));
+        }
+
+        had_parent
+    }
+}
+
+fn day_ten_b(input: &str) -> u64 {
+    let mut adapters: HashSet<u32> = input.lines().filter_map(|l| l.parse().ok()).collect();
+    let built_in = adapters.iter().copied().max().unwrap_or(0) + 3;
+    adapters.insert(built_in);
+
+    let mut nodes = NodeCollection::new();
+    for n in 1..=built_in {
+        if adapters.contains(&n) {
+            nodes.insert(n);
+        }
+    }
+
+    let path_count = nodes
+        .map
+        .remove(&built_in)
+        .map(|n| n.borrow().shortcut)
+        .unwrap_or(0);
+
+    path_count
+}
+
+#[test]
+fn test_day_ten_b() {
+    let inp = r#"16
+10
+15
+5
+1
+11
+7
+19
+6
+12
+4"#;
+    let res = day_ten_b(inp);
+    assert_eq!(res, 8);
+
+    let inp = r#"28
+33
+18
+42
+31
+14
+46
+20
+48
+47
+24
+23
+49
+45
+19
+38
+39
+11
+1
+32
+25
+35
+8
+17
+7
+9
+4
+2
+34
+10
+3"#;
+    let res = day_ten_b(inp);
+    assert_eq!(res, 19208);
 }
