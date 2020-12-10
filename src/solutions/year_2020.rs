@@ -1,8 +1,6 @@
 use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
-use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::Rc;
 
 use crate::{solution, Solution};
 
@@ -884,92 +882,63 @@ fn test_day_ten_a() {
     assert_eq!(res, 22 * 10);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Node {
     value: u32,
-    left: Option<Rc<RefCell<Node>>>,
-    middle: Option<Rc<RefCell<Node>>>,
-    right: Option<Rc<RefCell<Node>>>,
-    shortcut: u64,
+    paths_to_root: u64,
 }
 
 struct NodeCollection {
-    map: HashMap<u32, Rc<RefCell<Node>>>,
+    map: HashMap<u32, Node>,
 }
 
 impl NodeCollection {
-    fn new() -> Self {
-        let nodes = Node {
+    fn with_capacity(capacity: usize) -> Self {
+        let root_node = Node {
             value: 0,
-            left: None,
-            middle: None,
-            right: None,
-            shortcut: 1,
+            paths_to_root: 1,
         };
-        let root_node = Rc::new(RefCell::new(nodes));
-        let mut map = HashMap::new();
+        let mut map = HashMap::with_capacity(capacity);
         map.insert(0, root_node);
 
         Self { map }
     }
 
-    fn insert(&mut self, value: u32) -> bool {
-        let mut node = Node {
-            value,
-            left: None,
-            middle: None,
-            right: None,
-            shortcut: 0,
-        };
+    fn insert(&mut self, value: u32) -> u64 {
+        let mut paths_to_root = 0;
 
-        let mut had_parent = false;
-
-        let mut shortcut = 0;
-        for n in 1..=3 {
-            if n > value {
-                continue;
-            }
+        for n in 1..=3.min(value) {
             let parent_value = value - n;
-            if let Some(parent) = self.map.get_mut(&parent_value) {
-                had_parent = true;
-                shortcut += parent.borrow().shortcut;
-                match n {
-                    1 => node.left = Some(parent.clone()),
-                    2 => node.middle = Some(parent.clone()),
-                    3 => node.right = Some(parent.clone()),
-                    _ => unreachable!(),
-                }
+            if let Some(parent) = self.map.get(&parent_value) {
+                paths_to_root += parent.paths_to_root;
             }
         }
 
-        if had_parent {
-            node.shortcut = shortcut;
-            self.map.insert(value, Rc::new(RefCell::new(node)));
+        if paths_to_root != 0 {
+            let node = Node {
+                value,
+                paths_to_root,
+            };
+            self.map.insert(value, node);
         }
 
-        had_parent
+        paths_to_root
     }
 }
 
 fn day_ten_b(input: &str) -> u64 {
-    let mut adapters: HashSet<u32> = input.lines().filter_map(|l| l.parse().ok()).collect();
-    let built_in = adapters.iter().copied().max().unwrap_or(0) + 3;
+    let mut adapters: std::collections::BTreeSet<u32> =
+        input.lines().filter_map(|l| l.parse().ok()).collect();
+    let built_in = adapters.iter().copied().last().unwrap_or(0) + 3;
     adapters.insert(built_in);
 
-    let mut nodes = NodeCollection::new();
-    for n in 1..=built_in {
-        if adapters.contains(&n) {
-            nodes.insert(n);
-        }
+    let mut nodes = NodeCollection::with_capacity(adapters.len());
+    let mut paths = 0;
+    for n in adapters.range(1..=built_in) {
+        paths = nodes.insert(*n);
     }
 
-    let path_count = nodes
-        .map
-        .remove(&built_in)
-        .map(|n| n.borrow().shortcut)
-        .unwrap_or(0);
-
-    path_count
+    paths
 }
 
 #[test]
