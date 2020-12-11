@@ -16,6 +16,7 @@ pub fn days() -> Vec<Solution> {
         solution!(8, day_eight_a, day_eight_b),
         solution!(9, day_nine_a, day_nine_b),
         solution!(10, day_ten_a, day_ten_b),
+        solution!(11, day_eleven_a, day_eleven_b),
     ]
 }
 
@@ -990,4 +991,139 @@ fn test_day_ten_b() {
 3"#;
     let res = day_ten_b(inp);
     assert_eq!(res, 19208);
+}
+
+#[test]
+fn test_day_eleven() {
+    let run_a = |inp, res| assert_eq!(day_eleven_a(inp), res);
+    let run_b = |inp, res| assert_eq!(day_eleven_b(inp), res);
+
+    let input = r#"L.LL.LL.LL
+LLLLLLL.LL
+L.L.L..L..
+LLLL.LL.LL
+L.LL.LL.LL
+L.LLLLL.LL
+..L.L.....
+LLLLLLLLLL
+L.LLLLLL.L
+L.LLLLL.LL"#;
+
+    run_a(input, 37);
+    run_b(input, 26);
+}
+
+fn day_eleven_a(input: &str) -> i32 {
+    let mut grid: HashMap<_, _> = input
+        .lines()
+        .enumerate()
+        .flat_map(|(row, l)| {
+            l.chars()
+                .enumerate()
+                .map(move |(column, c)| ((row, column), c))
+        })
+        .collect();
+
+    let mut next_grid = HashMap::new();
+
+    let mut changed = true;
+    let mut occupied = 0;
+    while changed {
+        changed = false;
+        for (&(row, column), c) in grid.iter() {
+            let point = (row, column);
+            let neighbors = count_neighbors(&grid, point, false);
+            match c {
+                'L' if neighbors == 0 => {
+                    changed = true;
+                    next_grid.insert(point, '#');
+                    occupied += 1;
+                }
+                '#' if neighbors >= 4 => {
+                    changed = true;
+                    next_grid.insert(point, 'L');
+                    occupied -= 1;
+                }
+                c => {
+                    next_grid.insert(point, *c);
+                }
+            }
+        }
+
+        std::mem::swap(&mut grid, &mut next_grid);
+    }
+
+    occupied
+}
+
+fn count_neighbors(
+    grid: &HashMap<(usize, usize), char>,
+    point: (usize, usize),
+    fancy: bool,
+) -> u32 {
+    let mut sum = 0;
+    for x in -1..=1 {
+        for y in -1..=1 {
+            if x == 0 && y == 0 {
+                continue;
+            }
+            let mut point = (point.0, point.1);
+            loop {
+                point = (
+                    (point.0 as isize + y) as usize,
+                    (point.1 as isize + x) as usize,
+                );
+                match grid.get(&point) {
+                    Some('#') => sum += 1,
+                    Some('.') if fancy => continue,
+                    _ => (),
+                }
+                break;
+            }
+        }
+    }
+    sum
+}
+
+fn day_eleven_b(input: &str) -> u64 {
+    let mut grid: HashMap<_, _> = input
+        .lines()
+        .enumerate()
+        .flat_map(|(row, l)| {
+            l.chars()
+                .enumerate()
+                .map(move |(column, c)| ((row, column), c))
+        })
+        .collect();
+
+    let mut next_grid = HashMap::new();
+
+    let mut changed = true;
+    let mut occupied = 0;
+    while changed {
+        changed = false;
+        for (&(row, column), c) in grid.iter() {
+            let point = (row, column);
+            let neighbors = count_neighbors(&grid, point, true);
+            match c {
+                'L' if neighbors == 0 => {
+                    changed = true;
+                    next_grid.insert(point, '#');
+                    occupied += 1;
+                }
+                '#' if neighbors >= 5 => {
+                    changed = true;
+                    next_grid.insert(point, 'L');
+                    occupied -= 1;
+                }
+                c => {
+                    next_grid.insert(point, *c);
+                }
+            }
+        }
+
+        std::mem::swap(&mut grid, &mut next_grid);
+    }
+
+    occupied
 }

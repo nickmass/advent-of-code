@@ -1640,44 +1640,6 @@ fn day_fifteen_b(input: &str) -> u64 {
         .unwrap_or(0) as u64
 }
 
-#[derive(Clone)]
-struct DupeIter<T: Copy + Clone, I: Iterator<Item = T> + Clone> {
-    inner: I,
-    count: usize,
-    index: usize,
-    cache: Option<T>,
-}
-
-impl<T: Copy + Clone, I: Iterator<Item = T> + Clone> Iterator for DupeIter<T, I> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index % self.count == 0 {
-            self.cache = self.inner.next();
-        }
-        self.index += 1;
-        self.cache
-    }
-}
-
-trait IterExt: Iterator {
-    fn dupe(self, count: usize) -> DupeIter<<Self as Iterator>::Item, Self>
-    where
-        Self: Clone,
-        Self::Item: Clone + Copy;
-}
-
-impl<I: Iterator<Item = T> + Clone, T: Copy + Clone> IterExt for I {
-    fn dupe(self, count: usize) -> DupeIter<Self::Item, Self> {
-        DupeIter {
-            inner: self,
-            count,
-            index: 0,
-            cache: None,
-        }
-    }
-}
-
 fn day_sixteen_a(input: &str) -> String {
     let mut signal: Vec<_> = input
         .chars()
@@ -1729,66 +1691,8 @@ fn pattern_at(index: usize, dupe_count: usize) -> i32 {
     pattern[true_idx]
 }
 
-#[test]
-fn test_pattern_gen() {
-    let pattern = [0, 1, 0, -1];
-    for dupe in 1..=10 {
-        let pattern: Vec<_> = pattern
-            .iter()
-            .copied()
-            .dupe(dupe)
-            .cycle()
-            .skip(1)
-            .take(10)
-            .collect();
-        let mut test_pattern = Vec::new();
-        for n in 0..10 {
-            test_pattern.push(pattern_at(n, dupe));
-        }
-
-        assert_eq!(test_pattern, pattern);
-    }
-}
-
-fn gcf(a: usize, b: usize) -> usize {
-    if a == b {
-        return a;
-    }
-    let max = a.max(b);
-    let min = a.min(b);
-
-    let range = (a as f64).sqrt().ceil() as usize;
-
-    let mut max_found = 0;
-    for n in 1..=range {
-        if min % n == 0 {
-            let nn = min / n;
-            if max % nn == 0 {
-                max_found = max_found.max(nn);
-            } else if max % n == 0 {
-                max_found = max_found.max(n);
-            }
-        }
-    }
-
-    max_found
-}
-
-#[test]
-fn test_gcd() {
-    let a = 10000;
-    let b = 650;
-
-    let gcf = gcf(a, b);
-    assert_eq!(gcf, 50);
-}
-
-#[allow(unused_variables, unreachable_code)]
 fn day_sixteen_b(input: &str) -> String {
-    return "solution is much too slow".to_string();
-    let input = "03036732577212944063491565474664";
     let input_len = input.trim().len();
-    println!("{}", input_len);
     let repeat = 10000;
     let total_len = input_len * repeat;
 
@@ -1802,65 +1706,28 @@ fn day_sixteen_b(input: &str) -> String {
             }
         })
         .cycle()
-        .take(input.len() * repeat);
+        .take(total_len);
 
     let offset = input.clone().take(7).enumerate().fold(0, |acc, (idx, n)| {
         acc + (n as usize * 10usize.pow(6 - idx as u32))
     });
 
-    let mut signal: Vec<_> = input.collect();
-    println!("{} {}", offset, signal.len());
+    // Would run into performance issues if the offset ended having leading zeros,
+    // would even give incorrect results if offset < (total_len / 2)
+    assert!(offset > total_len / 2);
 
-    let mut next_signal = Vec::with_capacity(signal.len());
+    let mut signal: Vec<_> = input.skip(offset).collect();
 
-    for phase in 0..100 {
-        println!("phase: {}", phase);
-        next_signal.clear();
-        for position in 0..signal.len() {
-            let dupe_count = position + 1;
-            let pattern_len = dupe_count * 4;
-            let gcf = gcf(input_len, pattern_len);
-            let lcm = (input_len * pattern_len) / gcf;
-            let repeat_cycle_len = pattern_len * lcm;
-            let repeats = total_len / repeat_cycle_len;
-            let remainder = total_len % repeat_cycle_len;
-
-            let mut sum: i32 = 0;
-            if repeat_cycle_len < total_len {
-                sum += signal[position..repeat_cycle_len]
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(idx, d)| {
-                        let p = pattern_at(position + idx, dupe_count);
-                        d as i32 * p
-                    })
-                    .sum::<i32>()
-                    * repeats as i32;
-            }
-
-            if remainder != 0 {
-                sum += signal[position..remainder]
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(idx, d)| {
-                        let p = pattern_at(position + idx, dupe_count);
-                        d as i32 * p
-                    })
-                    .sum::<i32>();
-            }
-
-            next_signal.push((sum.abs() % 10) as u8);
+    for _phase in 0..100 {
+        let mut sum = 0;
+        for n in signal.iter_mut().rev() {
+            sum += *n as i32;
+            *n = (sum % 10) as u8
         }
-
-        std::mem::swap(&mut signal, &mut next_signal);
     }
 
     signal
         .into_iter()
-        .cycle()
-        .skip(offset)
         .take(8)
         .map(|n| (n + '0' as u8) as char)
         .collect()
