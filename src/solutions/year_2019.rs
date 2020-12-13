@@ -675,7 +675,7 @@ fn create_angle_grid(width: i32, height: i32) -> Vec<(Point2<i32>, f32)> {
     corners
 }
 
-fn day_ten_a(input: &str) -> String {
+fn day_ten_a(input: &str) -> DayTenResult {
     let grid = AsteroidGrid::new(input);
 
     let mut max_roids = 0;
@@ -688,13 +688,22 @@ fn day_ten_a(input: &str) -> String {
         }
     }
 
-    format!("{} @ {},{}", max_roids, target.x, target.y)
+    DayTenResult { max_roids, target }
+}
+
+struct DayTenResult {
+    max_roids: usize,
+    target: Point2<i32>,
+}
+
+impl std::fmt::Display for DayTenResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.max_roids)
+    }
 }
 
 fn day_ten_b(input: &str) -> i32 {
-    const X: i32 = 37;
-    const Y: i32 = 25;
-    const P: Point2<i32> = Point2::new(X, Y);
+    let DayTenResult { target, .. } = day_ten_a(input);
     let mut grid = AsteroidGrid::new(input);
 
     grid.angles
@@ -706,7 +715,7 @@ fn day_ten_b(input: &str) -> i32 {
     while loop_count < grid.height * grid.width {
         for idx in 0..angles {
             let (pp, _) = grid.angles[idx];
-            let mut target = P + (pp * loop_count);
+            let mut target = target + (pp * loop_count);
 
             while grid.in_bounds(target) {
                 if grid.remove(target) {
