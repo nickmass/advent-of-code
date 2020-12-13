@@ -121,11 +121,12 @@ fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) -> Duration
             let part_one = (day.part_one)(&input).to_string();
             let time_part_one = time_part_one.elapsed();
 
+            print_line(day.day, 1, part_one, time_part_one);
+
             let time_part_two = Instant::now();
             let part_two = (day.part_two)(&input).to_string();
             let time_part_two = time_part_two.elapsed();
 
-            print_line(day.day, 1, part_one, time_part_one);
             print_line(day.day, 2, part_two, time_part_two);
 
             time_part_one + time_part_two
