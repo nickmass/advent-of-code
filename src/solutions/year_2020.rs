@@ -20,6 +20,7 @@ pub fn days() -> Vec<Solution> {
         solution!(12, day_twelve_a, day_twelve_b),
         solution!(13, day_thirteen_a, day_thirteen_b),
         solution!(14, day_fourteen_a, day_fourteen_b),
+        solution!(15, day_fifteen_a, day_fifteen_b),
     ]
 }
 
@@ -1511,4 +1512,61 @@ mem[42] = 100
 mask = 00000000000000000000000000000000X0XX
 mem[26] = 1"#;
     run_b(i, 208);
+}
+
+fn day_fifteen_a(input: &str) -> u32 {
+    day_fifteen(input, 2020)
+}
+
+fn day_fifteen_b(input: &str) -> u32 {
+    day_fifteen(input, 30000000)
+}
+
+fn day_fifteen(input: &str, nth_number: u32) -> u32 {
+    let nums = input.trim().split(',').filter_map(|n| n.parse().ok());
+    let mut turn = 0;
+    let mut map = vec![u32::MAX; nth_number as usize];
+    let mut last_num = None;
+    for num in nums {
+        if let Some(last_num) = last_num {
+            map[last_num as usize] = turn - 1;
+        }
+        last_num = Some(num);
+        turn += 1;
+    }
+
+    if let Some(mut last_num) = last_num {
+        let start = turn - 1;
+        let end = nth_number - 1;
+
+        for turn in start..end {
+            let val = map[last_num as usize];
+            let num = if val != u32::MAX { turn - val } else { 0 };
+
+            map[last_num as usize] = turn;
+            last_num = num;
+        }
+
+        last_num
+    } else {
+        0
+    }
+}
+
+#[test]
+fn test_day_fifteen() {
+    let run_a = |input, res| assert_eq!(day_fifteen_a(input), res);
+    let run_b = |input, res| assert_eq!(day_fifteen_b(input), res);
+
+    let input = r#"0,3,6"#;
+    run_a(input, 436);
+    run_b(input, 175594);
+
+    let input = r#"1,3,2"#;
+    run_a(input, 1);
+
+    let input = r#"2,1,3"#;
+    run_a(input, 10);
+    let input = r#"1,2,3"#;
+    run_a(input, 27);
 }
