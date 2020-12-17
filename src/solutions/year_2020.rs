@@ -21,6 +21,8 @@ pub fn days() -> Vec<Solution> {
         solution!(13, day_thirteen_a, day_thirteen_b),
         solution!(14, day_fourteen_a, day_fourteen_b),
         solution!(15, day_fifteen_a, day_fifteen_b),
+        solution!(16, day_sixteen_a, day_sixteen_b),
+        solution!(17, day_seventeen_a, day_seventeen_b),
     ]
 }
 
@@ -965,117 +967,126 @@ L.LLLLL.LL
 ..L.L.....
 LLLLLLLLLL
 L.LLLLLL.L
-L.LLLLL.LL"#;
+L.LLLLL.LL
+"#;
 
     run_a(input, 37);
     run_b(input, 26);
 }
 
-fn day_eleven_a(input: &str) -> i32 {
-    let mut grid: HashMap<_, _> = input
-        .lines()
-        .enumerate()
-        .flat_map(|(row, l)| {
-            l.chars()
-                .enumerate()
-                .map(move |(column, c)| ((row, column), c))
-        })
-        .collect();
-
-    let mut next_grid = HashMap::new();
-
-    let mut changed = true;
-    let mut occupied = 0;
-    while changed {
-        changed = false;
-        for (&(row, column), c) in grid.iter() {
-            let point = (row, column);
-            let neighbors = count_neighbors(&grid, point, false);
-            match c {
-                'L' if neighbors == 0 => {
-                    changed = true;
-                    next_grid.insert(point, '#');
-                    occupied += 1;
-                }
-                '#' if neighbors >= 4 => {
-                    changed = true;
-                    next_grid.insert(point, 'L');
-                    occupied -= 1;
-                }
-                c => {
-                    next_grid.insert(point, *c);
-                }
-            }
-        }
-
-        std::mem::swap(&mut grid, &mut next_grid);
-    }
-
-    occupied
+#[derive(Debug, Copy, Clone)]
+enum GridCell {
+    Empty,
+    Seat,
+    Occupied,
 }
 
-fn count_neighbors(
-    grid: &HashMap<(usize, usize), char>,
-    point: (usize, usize),
+#[derive(Debug, Clone)]
+struct DayElevenGrid {
+    cells: Vec<GridCell>,
+    width: usize,
+    height: usize,
     fancy: bool,
-) -> u32 {
-    let mut sum = 0;
-    for x in -1..=1 {
-        for y in -1..=1 {
-            if x == 0 && y == 0 {
-                continue;
-            }
-            let mut point = (point.0, point.1);
-            loop {
-                point = (
-                    (point.0 as isize + y) as usize,
-                    (point.1 as isize + x) as usize,
-                );
-                match grid.get(&point) {
-                    Some('#') => sum += 1,
-                    Some('.') if fancy => continue,
-                    _ => (),
-                }
-                break;
-            }
-        }
-    }
-    sum
 }
 
-fn day_eleven_b(input: &str) -> u64 {
-    let mut grid: HashMap<_, _> = input
-        .lines()
-        .enumerate()
-        .flat_map(|(row, l)| {
-            l.chars()
-                .enumerate()
-                .map(move |(column, c)| ((row, column), c))
-        })
-        .collect();
+impl DayElevenGrid {
+    fn new(input: &str, fancy_grid: bool) -> Self {
+        let mut width = 0;
+        let mut height = 0;
+        let mut cells = Vec::with_capacity(input.len());
+        for c in input.chars() {
+            let cell = match c {
+                '#' => Some(GridCell::Occupied),
+                'L' => Some(GridCell::Seat),
+                '.' => Some(GridCell::Empty),
+                '\n' => {
+                    height += 1;
+                    None
+                }
+                _ => panic!("invalid grid"),
+            };
 
-    let mut next_grid = HashMap::new();
+            if let Some(cell) = cell {
+                cells.push(cell);
+            }
+
+            if height == 0 {
+                width += 1;
+            }
+        }
+
+        Self {
+            cells,
+            width,
+            height,
+            fancy: fancy_grid,
+        }
+    }
+
+    fn get(&self, x: usize, y: usize) -> Option<GridCell> {
+        if y >= self.height || x >= self.width {
+            None
+        } else {
+            Some(self.cells[y * self.width + x])
+        }
+    }
+
+    fn set(&mut self, x: usize, y: usize, cell: GridCell) {
+        self.cells[y * self.width + x] = cell;
+    }
+
+    fn count_neighbors(&self, x: usize, y: usize) -> u32 {
+        let mut sum = 0;
+        for x_offset in -1..=1 {
+            for y_offset in -1..=1 {
+                if x_offset == 0 && y_offset == 0 {
+                    continue;
+                }
+                let mut x = x;
+                let mut y = y;
+                loop {
+                    x = (x as isize + x_offset) as usize;
+                    y = (y as isize + y_offset) as usize;
+
+                    match self.get(x, y) {
+                        Some(GridCell::Occupied) => sum += 1,
+                        Some(GridCell::Empty) if self.fancy => continue,
+                        _ => (),
+                    }
+                    break;
+                }
+            }
+        }
+        sum
+    }
+}
+
+fn day_eleven(input: &str, occupy_limit: u32, fancy: bool) -> i32 {
+    let mut grid = DayElevenGrid::new(input, fancy);
+    let mut next_grid = grid.clone();
 
     let mut changed = true;
     let mut occupied = 0;
     while changed {
         changed = false;
-        for (&(row, column), c) in grid.iter() {
-            let point = (row, column);
-            let neighbors = count_neighbors(&grid, point, true);
-            match c {
-                'L' if neighbors == 0 => {
-                    changed = true;
-                    next_grid.insert(point, '#');
-                    occupied += 1;
-                }
-                '#' if neighbors >= 5 => {
-                    changed = true;
-                    next_grid.insert(point, 'L');
-                    occupied -= 1;
-                }
-                c => {
-                    next_grid.insert(point, *c);
+        for x in 0..grid.width {
+            for y in 0..grid.height {
+                let neighbors = grid.count_neighbors(x, y);
+                match grid.get(x, y) {
+                    Some(GridCell::Seat) if neighbors == 0 => {
+                        changed = true;
+                        next_grid.set(x, y, GridCell::Occupied);
+                        occupied += 1;
+                    }
+                    Some(GridCell::Occupied) if neighbors >= occupy_limit => {
+                        changed = true;
+                        next_grid.set(x, y, GridCell::Seat);
+                        occupied -= 1;
+                    }
+                    Some(cell) => {
+                        next_grid.set(x, y, cell);
+                    }
+                    None => unreachable!("outside x y bounds"),
                 }
             }
         }
@@ -1084,6 +1095,14 @@ fn day_eleven_b(input: &str) -> u64 {
     }
 
     occupied
+}
+
+fn day_eleven_a(input: &str) -> i32 {
+    day_eleven(input, 4, false)
+}
+
+fn day_eleven_b(input: &str) -> i32 {
+    day_eleven(input, 5, true)
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1569,4 +1588,406 @@ fn test_day_fifteen() {
     run_a(input, 10);
     let input = r#"1,2,3"#;
     run_a(input, 27);
+}
+
+fn day_sixteen_a(input: &str) -> u64 {
+    let lines = input.lines();
+    let mut mode = 0;
+
+    let mut rules = Vec::new();
+    let mut error_num = 0;
+    for line in lines {
+        match mode {
+            0 => {
+                if line == "" {
+                    mode += 1;
+                    continue;
+                }
+                let mut splits: Vec<_> = line.split_whitespace().collect();
+                splits.reverse();
+                let mut left_rules = splits[0].split('-');
+                let left_a: u64 = left_rules.next().unwrap().parse().unwrap();
+                let left_b: u64 = left_rules.next().unwrap().parse().unwrap();
+                let left = left_a..=left_b;
+
+                let mut right_rules = splits[2].split('-');
+                let right_a: u64 = right_rules.next().unwrap().parse().unwrap();
+                let right_b: u64 = right_rules.next().unwrap().parse().unwrap();
+                let right = right_a..=right_b;
+
+                rules.push((left, right));
+            }
+            1 => {
+                mode += 1;
+            }
+            2 => {
+                //my ticket
+                mode += 1;
+            }
+            3 => {
+                mode += 1;
+            }
+            4 => {
+                mode += 1;
+            }
+            5 => {
+                let values = line.trim().split(',').filter_map(|n| n.parse().ok());
+
+                'outer: for value in values {
+                    for r in rules.iter() {
+                        if r.0.contains(&value) {
+                            continue 'outer;
+                        }
+                        if r.1.contains(&value) {
+                            continue 'outer;
+                        }
+                    }
+
+                    error_num += value;
+                }
+            }
+            _ => panic!(),
+        }
+    }
+
+    error_num
+}
+
+fn day_sixteen_b(input: &str) -> u64 {
+    let lines = input.lines();
+    let mut mode = 0;
+
+    let mut rules = Vec::new();
+    let mut tickets = Vec::new();
+    let mut my_ticket: Vec<u64> = Vec::new();
+    for line in lines {
+        match mode {
+            0 => {
+                if line == "" {
+                    mode += 1;
+                    continue;
+                }
+                let mut splits: Vec<_> = line.split_whitespace().collect();
+                splits.reverse();
+                let mut left_rules = splits[0].split('-');
+                let left_a: u64 = left_rules.next().unwrap().parse().unwrap();
+                let left_b: u64 = left_rules.next().unwrap().parse().unwrap();
+                let left = left_a..=left_b;
+
+                let mut right_rules = splits[2].split('-');
+                let right_a: u64 = right_rules.next().unwrap().parse().unwrap();
+                let right_b: u64 = right_rules.next().unwrap().parse().unwrap();
+                let right = right_a..=right_b;
+
+                let depature = splits.last().unwrap() == &"departure";
+
+                rules.push((left, right, depature, false));
+            }
+            1 => {
+                mode += 1;
+            }
+            2 => {
+                my_ticket = line
+                    .trim()
+                    .split(',')
+                    .filter_map(|n| n.parse().ok())
+                    .collect();
+
+                mode += 1;
+            }
+            3 => {
+                mode += 1;
+            }
+            4 => {
+                mode += 1;
+            }
+            5 => {
+                let values: Vec<_> = line
+                    .trim()
+                    .split(',')
+                    .filter_map(|n| n.parse().ok())
+                    .collect();
+
+                let mut valid = true;
+                'outer: for value in values.iter() {
+                    for r in rules.iter() {
+                        if r.0.contains(value) {
+                            continue 'outer;
+                        }
+                        if r.1.contains(value) {
+                            continue 'outer;
+                        }
+                    }
+                    valid = false;
+                }
+
+                if valid {
+                    tickets.push(values);
+                }
+            }
+            _ => panic!(),
+        }
+    }
+
+    let mut rule_map = HashMap::new();
+    let column_count = my_ticket.len();
+
+    loop {
+        for r in rules.iter_mut() {
+            if r.3 {
+                continue;
+            }
+            let mut possible_cols = Vec::new();
+            'col: for col in 0..column_count {
+                if rule_map.contains_key(&col) {
+                    continue 'col;
+                }
+                for t in tickets.iter() {
+                    let v = t[col];
+                    if !r.0.contains(&v) && !r.1.contains(&v) {
+                        continue 'col;
+                    }
+                }
+                possible_cols.push(col);
+            }
+
+            if possible_cols.len() == 1 {
+                let col = possible_cols.first().unwrap();
+                r.3 = true;
+                rule_map.insert(*col, r.clone());
+            } else if possible_cols.len() == 0 {
+                panic!("shiiit");
+            }
+        }
+        if rule_map.len() == column_count {
+            break;
+        }
+    }
+
+    let mut total = 1;
+    for (k, v) in rule_map {
+        if v.2 {
+            total *= my_ticket[k];
+        }
+    }
+
+    total
+}
+
+#[test]
+fn test_day_sixteen() {
+    let run_a = |input, res| assert_eq!(day_sixteen_a(input), res);
+
+    let input = r#"class: 1-3 or 5-7
+row: 6-11 or 33-44
+seat: 13-40 or 45-50
+
+your ticket:
+7,1,14
+
+nearby tickets:
+7,3,47
+40,4,50
+55,2,20
+38,6,12"#;
+
+    run_a(input, 71);
+}
+
+fn day_seventeen_a(input: &str) -> u64 {
+    let mut grid = HashSet::new();
+
+    let lines = input.trim().lines();
+    let mut min_x = 0;
+    let mut min_y = 0;
+    let mut min_z = -1;
+    let mut max_x = 0;
+    let mut max_y = 0;
+    let mut max_z = 1;
+
+    for (row, line) in lines.enumerate() {
+        for (col, c) in line.chars().enumerate() {
+            let row = row as i32;
+            let col = col as i32;
+
+            let point = (col, row, 0);
+
+            max_x = max_x.max(col);
+            max_y = max_y.max(row);
+            min_x = min_x.min(col);
+            min_y = min_y.min(row);
+
+            if c == '#' {
+                grid.insert(point);
+            }
+        }
+    }
+
+    for _ in 0..6 {
+        let mut next_grid = HashSet::new();
+        for x in (min_x - 1)..=(max_x + 1) {
+            for y in (min_y - 1)..=(max_y + 1) {
+                for z in (min_z - 1)..=(max_z + 1) {
+                    let point = (x, y, z);
+                    let count = count_neighbors(&grid, point);
+                    let me = grid.contains(&point);
+
+                    if me {
+                        if count == 2 || count == 3 {
+                            next_grid.insert(point);
+                        } else {
+                            next_grid.remove(&point);
+                        }
+                    } else {
+                        if count == 3 {
+                            max_x = max_x.max(x);
+                            max_y = max_y.max(y);
+                            max_z = max_z.max(z);
+                            min_x = min_x.min(x);
+                            min_y = min_y.min(y);
+                            min_z = min_z.min(z);
+                            next_grid.insert(point);
+                        }
+                    }
+                }
+            }
+        }
+
+        std::mem::swap(&mut grid, &mut next_grid);
+    }
+
+    grid.len() as u64
+}
+
+fn count_neighbors(grid: &HashSet<(i32, i32, i32)>, point: (i32, i32, i32)) -> i32 {
+    let mut count = 0;
+    for x_off in -1..=1 {
+        for y_off in -1..=1 {
+            for z_off in -1..=1 {
+                if x_off == 0 && y_off == 0 && z_off == 0 {
+                    continue;
+                }
+                let x = point.0 + x_off;
+                let y = point.1 + y_off;
+                let z = point.2 + z_off;
+                let p = (x, y, z);
+
+                if grid.contains(&p) {
+                    count += 1;
+                }
+            }
+        }
+    }
+
+    count
+}
+
+fn count_neighbors_4d(grid: &HashSet<(i32, i32, i32, i32)>, point: (i32, i32, i32, i32)) -> i32 {
+    let mut count = 0;
+    for x_off in -1..=1 {
+        for y_off in -1..=1 {
+            for z_off in -1..=1 {
+                for w_off in -1..=1 {
+                    if x_off == 0 && y_off == 0 && z_off == 0 && w_off == 0 {
+                        continue;
+                    }
+                    let x = point.0 + x_off;
+                    let y = point.1 + y_off;
+                    let z = point.2 + z_off;
+                    let w = point.3 + w_off;
+                    let p = (x, y, z, w);
+
+                    if grid.contains(&p) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    count
+}
+
+fn day_seventeen_b(input: &str) -> u64 {
+    let mut grid = HashSet::new();
+
+    let lines = input.trim().lines();
+    let mut min_x = 0;
+    let mut min_y = 0;
+    let mut min_z = -1;
+    let mut min_w = -1;
+    let mut max_x = 0;
+    let mut max_y = 0;
+    let mut max_z = 1;
+    let mut max_w = 1;
+
+    for (row, line) in lines.enumerate() {
+        for (col, c) in line.chars().enumerate() {
+            let row = row as i32;
+            let col = col as i32;
+
+            let point = (col, row, 0, 0);
+
+            max_x = max_x.max(col);
+            max_y = max_y.max(row);
+            min_x = min_x.min(col);
+            min_y = min_y.min(row);
+
+            if c == '#' {
+                grid.insert(point);
+            }
+        }
+    }
+
+    for _ in 0..6 {
+        let mut next_grid = HashSet::new();
+        for x in (min_x - 1)..=(max_x + 1) {
+            for y in (min_y - 1)..=(max_y + 1) {
+                for z in (min_z - 1)..=(max_z + 1) {
+                    for w in (min_w - 1)..=(max_w + 1) {
+                        let point = (x, y, z, w);
+                        let count = count_neighbors_4d(&grid, point);
+                        let me = grid.contains(&point);
+
+                        if me {
+                            if count == 2 || count == 3 {
+                                next_grid.insert(point);
+                            } else {
+                                next_grid.remove(&point);
+                            }
+                        } else {
+                            if count == 3 {
+                                max_x = max_x.max(x);
+                                max_y = max_y.max(y);
+                                max_z = max_z.max(z);
+                                max_w = max_w.max(w);
+                                min_x = min_x.min(x);
+                                min_y = min_y.min(y);
+                                min_z = min_z.min(z);
+                                min_w = min_w.min(w);
+                                next_grid.insert(point);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        std::mem::swap(&mut grid, &mut next_grid);
+    }
+
+    grid.len() as u64
+}
+
+#[test]
+fn test_day_seventeen() {
+    let run_a = |input, res| assert_eq!(day_seventeen_a(input), res);
+    let run_b = |input, res| assert_eq!(day_seventeen_b(input), res);
+
+    let i = r#".#.
+..#
+###"#;
+
+    run_a(i, 112);
+    run_b(i, 848);
 }
