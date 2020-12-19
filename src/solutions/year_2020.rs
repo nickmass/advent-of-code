@@ -24,6 +24,7 @@ pub fn days() -> Vec<Solution> {
         solution!(16, day_sixteen_a, day_sixteen_b),
         solution!(17, day_seventeen_a, day_seventeen_b),
         solution!(18, day_eighteen_a, day_eighteen_b),
+        solution!(19, day_nineteen_a, day_nineteen_b),
     ]
 }
 
@@ -2111,7 +2112,6 @@ fn eval_expression(expression: &str, equal_precedence: bool) -> u64 {
                 let rhs = eval_stack.pop().unwrap();
                 eval_stack.push(lhs * rhs);
             }
-
             _ => unreachable!("invalid rpn"),
         }
     }
@@ -2147,4 +2147,382 @@ fn test_day_eighteen() {
     let i = r#"((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2"#;
     run_a(i, 13632);
     run_b(i, 23340);
+}
+
+struct Rule {
+    id: usize,
+    recursive: bool,
+    matcher: Match,
+}
+enum Match {
+    Simple(Vec<usize>),
+    Pair(Vec<usize>, Vec<usize>),
+    Char(char),
+}
+
+impl std::str::FromStr for Rule {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        #[derive(Eq, PartialEq)]
+        enum Stage {
+            Id,
+            Char,
+            MatchOne,
+            MatchTwo,
+        }
+
+        let mut stage = Stage::Id;
+        let mut num = None;
+        let mut id = 0;
+        let mut match_one = Vec::new();
+        let mut match_two = Vec::new();
+        let mut match_char = '0';
+        for c in s.trim().chars() {
+            match c {
+                '|' => {
+                    stage = Stage::MatchTwo;
+                }
+                ':' => {
+                    id = num.unwrap();
+                    num = None;
+                    stage = Stage::MatchOne;
+                }
+                '"' => {
+                    stage = Stage::Char;
+                }
+                c if c.is_ascii_digit() && stage != Stage::Char => {
+                    num = Some((num.unwrap_or(0) * 10) + (c as u8 - '0' as u8) as usize);
+                }
+                c if c.is_whitespace() => {
+                    if let Some(next) = num {
+                        match stage {
+                            Stage::MatchOne => match_one.push(next),
+                            Stage::MatchTwo => match_two.push(next),
+                            _ => unreachable!("invalid rule"),
+                        }
+                        num = None;
+                    }
+                }
+                c => {
+                    match_char = c;
+                }
+            }
+        }
+
+        if let Some(next) = num {
+            match stage {
+                Stage::MatchOne => match_one.push(next),
+                Stage::MatchTwo => match_two.push(next),
+                _ => unreachable!("invalid rule"),
+            }
+        }
+
+        let res = match (match_one.len(), match_two.len()) {
+            (0, 0) => Rule {
+                id,
+                recursive: false,
+                matcher: Match::Char(match_char),
+            },
+            (_, 0) => Rule {
+                id,
+                recursive: false,
+                matcher: Match::Simple(match_one),
+            },
+            (_, _) => {
+                let recursive = match_one.contains(&id) || match_two.contains(&id);
+                Rule {
+                    id,
+                    recursive,
+                    matcher: Match::Pair(match_one, match_two),
+                }
+            }
+        };
+        Ok(res)
+    }
+}
+
+impl std::fmt::Display for Rule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.matcher {
+            Match::Char(c) => write!(f, "{}: \"{}\"", self.id, c),
+            Match::Simple(rules) => {
+                let rules = rules
+                    .iter()
+                    .map(|r| r.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                write!(f, "{}: {}", self.id, rules)
+            }
+            Match::Pair(left_rules, right_rules) => {
+                let left = left_rules
+                    .iter()
+                    .map(|r| r.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let right = right_rules
+                    .iter()
+                    .map(|r| r.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                write!(f, "{}: {} | {}", self.id, left, right)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MatchState {
+    idx: usize,
+    rec_count: usize,
+}
+
+struct RuleCollection {
+    map: HashMap<usize, Rule>,
+    recursive_rules: Vec<usize>,
+}
+
+impl RuleCollection {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+            recursive_rules: Vec::new(),
+        }
+    }
+
+    fn insert<S: AsRef<str>>(&mut self, rule: S) {
+        let rule: Rule = rule.as_ref().trim().parse().unwrap();
+        if rule.recursive {
+            self.recursive_rules.push(rule.id);
+        }
+        self.map.insert(rule.id, rule);
+    }
+
+    fn is_match(&self, s: &str) -> bool {
+        let r0 = self.map.get(&0);
+
+        if let Some(r0) = r0 {
+            let mut state = MatchState {
+                idx: 0,
+                rec_count: 0,
+            };
+            let chars: Vec<_> = s.chars().collect();
+            let is_match = self.is_match_rec(r0, &chars, &mut state);
+            if is_match && state.idx == s.len() {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    fn is_match_rec(&self, rule: &Rule, s: &[char], state: &mut MatchState) -> bool {
+        if state.idx >= s.len() {
+            return false;
+        }
+
+        match &rule.matcher {
+            Match::Char(c) => {
+                if Some(c) == s.get(state.idx) {
+                    state.idx += 1;
+                    true
+                } else {
+                    false
+                }
+            }
+            Match::Simple(rules) => self.is_list_match_rec(rules, s, state),
+            Match::Pair(_, right) if rule.recursive => {
+                let mut start_valid = true;
+                let mut end_valid = true;
+                let orig_idx = state.idx;
+                let mut rec_count = state.rec_count;
+
+                if rec_count == 0 {
+                    return false;
+                }
+
+                while rec_count > 0 {
+                    start_valid &= self.is_list_match_rec(&right[0..1], s, state);
+                    if !start_valid {
+                        break;
+                    }
+                    rec_count -= 1;
+                }
+
+                if right.len() == 3 {
+                    let mut rec_count = state.rec_count;
+                    while rec_count > 0 {
+                        end_valid &= self.is_list_match_rec(&right[2..3], s, state);
+                        if !end_valid {
+                            break;
+                        }
+                        rec_count -= 1;
+                    }
+                }
+
+                if !start_valid || !end_valid {
+                    state.idx = orig_idx;
+                }
+
+                start_valid && end_valid
+            }
+            Match::Pair(left, right) => {
+                self.is_list_match_rec(left, s, state) || self.is_list_match_rec(right, s, state)
+            }
+        }
+    }
+
+    fn is_list_match_rec(&self, list: &[usize], s: &[char], state: &mut MatchState) -> bool {
+        let orig_idx = state.idx;
+        if list.iter().any(|r| self.recursive_rules.contains(r)) {
+            let mut list = list.iter().filter_map(|id| self.map.get(id));
+            let first_rule = list.next().unwrap();
+            let last_rule = list.next().unwrap();
+
+            let mut count = s.len();
+            loop {
+                state.idx = orig_idx;
+                state.rec_count = count;
+                let first_match = self.is_match_rec(first_rule, s, state);
+                if !first_match {
+                    if count == 1 {
+                        return false;
+                    } else {
+                        count -= 1;
+                        continue;
+                    }
+                }
+
+                let mut inner_count = s.len() - state.idx;
+                while inner_count > 0 {
+                    state.rec_count = inner_count;
+                    let second_match = self.is_match_rec(last_rule, s, state);
+                    if second_match && state.idx == s.len() {
+                        return true;
+                    } else {
+                        inner_count -= 1;
+                    }
+                }
+                count -= 1;
+
+                if count == 0 {
+                    return false;
+                }
+            }
+        } else {
+            let mut is_match = true;
+            for r in list.iter().filter_map(|id| self.map.get(id)) {
+                if !self.is_match_rec(r, s, state) {
+                    is_match = false;
+                    state.idx = orig_idx;
+                    break;
+                }
+            }
+            is_match
+        }
+    }
+}
+
+fn day_nineteen_a(input: &str) -> usize {
+    let mut lines = input.trim().lines();
+    let mut rules = RuleCollection::new();
+    for line in lines.by_ref() {
+        if line.len() == 0 {
+            break;
+        }
+        rules.insert(line);
+    }
+
+    lines.filter(|l| rules.is_match(l)).count()
+}
+
+// TODO very disappointed in this not being a general solution
+fn day_nineteen_b(input: &str) -> usize {
+    let mut lines = input.trim().lines();
+    let mut rules = RuleCollection::new();
+    for line in lines.by_ref() {
+        if line.len() == 0 {
+            break;
+        }
+        rules.insert(line);
+    }
+
+    rules.insert("8: 42 | 42 8");
+    rules.insert("11: 42 31 | 42 11 31");
+
+    lines.filter(|l| rules.is_match(l)).count()
+}
+
+#[test]
+fn test_day_nineteen() {
+    let run_a = |input, res| assert_eq!(day_nineteen_a(input), res);
+    let run_b = |input, res| assert_eq!(day_nineteen_b(input), res);
+
+    let i = r#"0: 4 1 5
+1: 2 3 | 3 2
+2: 4 4 | 5 5
+3: 4 5 | 5 4
+4: "a"
+5: "b"
+
+ababbb
+bababa
+abbbab
+aaabbb
+aaaabbb"#;
+    run_a(i, 002);
+    run_b(i, 002);
+
+    let i = r#"42: 9 14 | 10 1
+9: 14 27 | 1 26
+10: 23 14 | 28 1
+1: "a"
+11: 42 31
+5: 1 14 | 15 1
+19: 14 1 | 14 14
+12: 24 14 | 19 1
+16: 15 1 | 14 14
+31: 14 17 | 1 13
+6: 14 14 | 1 14
+2: 1 24 | 14 4
+0: 8 11
+13: 14 3 | 1 12
+15: 1 | 14
+17: 14 2 | 1 7
+23: 25 1 | 22 14
+28: 16 1
+4: 1 1
+20: 14 14 | 1 15
+3: 5 14 | 16 1
+27: 1 6 | 14 18
+14: "b"
+21: 14 1 | 1 14
+25: 1 1 | 1 14
+22: 14 14
+8: 42
+26: 14 22 | 1 20
+18: 15 15
+7: 14 5 | 1 21
+24: 14 1
+
+abbbbbabbbaaaababbaabbbbabababbbabbbbbbabaaaa
+bbabbbbaabaabba
+babbbbaabbbbbabbbbbbaabaaabaaa
+aaabbbbbbaaaabaababaabababbabaaabbababababaaa
+bbbbbbbaaaabbbbaaabbabaaa
+bbbababbbbaaaaaaaabbababaaababaabab
+ababaaaaaabaaab
+ababaaaaabbbaba
+baabbaaaabbaaaababbaababb
+abbbbabbbbaaaababbbbbbaaaababb
+aaaaabbaabaaaaababaa
+aaaabbaaaabbaaa
+aaaabbaabbaaaaaaabbbabbbaaabbaabaaa
+babaaabbbaaabaababbaabababaaab
+aabbbbbaabbbaaaaaabbbbbababaaaaabbaaabba"#;
+
+    run_a(i, 003);
+    run_b(i, 012);
 }
