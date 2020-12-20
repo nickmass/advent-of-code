@@ -2887,6 +2887,7 @@ struct TilePattern {
     pub height: usize,
     pub cell_count: u64,
     cells: Vec<bool>,
+    working_buf: Vec<bool>,
 }
 
 impl TilePattern {
@@ -2907,12 +2908,14 @@ impl TilePattern {
             }
             height += 1;
         }
+        let working_buf = Vec::with_capacity(cells.len());
 
         Self {
             width,
             height,
             cell_count,
             cells,
+            working_buf,
         }
     }
 
@@ -2925,11 +2928,12 @@ impl TilePattern {
     }
 
     fn rotate(&mut self) -> &mut Self {
-        let mut new_cells = Vec::with_capacity(self.cells.len());
+        self.working_buf.clear();
 
         for x in 0..self.width {
             for y in 0..self.height {
-                new_cells.push(self.get_cell(self.width - x - 1, y).unwrap());
+                self.working_buf
+                    .push(self.get_cell(self.width - x - 1, y).unwrap());
             }
         }
 
@@ -2937,21 +2941,22 @@ impl TilePattern {
         self.height = self.width;
         self.width = height;
 
-        self.cells = new_cells;
+        std::mem::swap(&mut self.cells, &mut self.working_buf);
 
         self
     }
 
     fn vert_flip(&mut self) -> &mut Self {
-        let mut new_cells = Vec::with_capacity(self.cells.len());
+        self.working_buf.clear();
 
         for y in 0..self.height {
             for x in 0..self.width {
-                new_cells.push(self.get_cell(x, self.height - y - 1).unwrap())
+                self.working_buf
+                    .push(self.get_cell(x, self.height - y - 1).unwrap())
             }
         }
 
-        self.cells = new_cells;
+        std::mem::swap(&mut self.cells, &mut self.working_buf);
 
         self
     }
@@ -3213,11 +3218,14 @@ fn day_twenty_a(input: &str) -> u64 {
 
     let mut corners = 1;
 
-    for tile in &all_tiles {
+    'outer: for tile in &all_tiles {
         let mut align_count = 0;
         for other_tile in &all_tiles {
             if tile.aligns_with(other_tile) {
                 align_count += 1;
+                if align_count > 2 {
+                    continue 'outer;
+                }
             }
         }
 
@@ -3233,7 +3241,7 @@ fn day_twenty_b(input: &str) -> u64 {
     let lines = input.trim().lines();
 
     let mut count = 0;
-    let mut all_tiles = HashMap::new();
+    let mut all_tiles = VecDeque::new();
     let mut cur_tile: Option<Tile> = None;
     for line in lines {
         if line.len() == 0 {
@@ -3243,7 +3251,7 @@ fn day_twenty_b(input: &str) -> u64 {
         if count == 0 {
             let id = line[5..9].parse().unwrap();
             if let Some(cur_tile) = cur_tile.take() {
-                all_tiles.insert(cur_tile.id, cur_tile);
+                all_tiles.push_back(cur_tile);
             }
             cur_tile = Some(Tile::new(id));
         } else if let Some(cur_tile) = cur_tile.as_mut() {
@@ -3253,40 +3261,14 @@ fn day_twenty_b(input: &str) -> u64 {
         count += 1;
     }
     if let Some(cur_tile) = cur_tile.take() {
-        all_tiles.insert(cur_tile.id, cur_tile);
+        all_tiles.push_back(cur_tile);
     }
 
     let mut image = TileImage::new();
 
-    let mut border = VecDeque::new();
-    let mut center = VecDeque::new();
-
-    for tile in all_tiles.values() {
-        let mut align_count = 0;
-        for other_tile in all_tiles.values() {
-            if tile.aligns_with(other_tile) {
-                align_count += 1;
-            }
-        }
-
-        if align_count == 2 || align_count == 3 {
-            border.push_back(tile.id);
-        } else {
-            center.push_back(tile.id);
-        }
-    }
-
-    while let Some(next_tile) = border.pop_front().and_then(|id| all_tiles.remove(&id)) {
+    while let Some(next_tile) = all_tiles.pop_front() {
         if let Err(tile) = image.attempt_insert(next_tile) {
-            border.push_back(tile.id);
-            all_tiles.insert(tile.id, tile);
-        }
-    }
-
-    while let Some(next_tile) = center.pop_front().and_then(|id| all_tiles.remove(&id)) {
-        if let Err(tile) = image.attempt_insert(next_tile) {
-            center.push_back(tile.id);
-            all_tiles.insert(tile.id, tile);
+            all_tiles.push_back(tile);
         }
     }
 

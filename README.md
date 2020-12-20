@@ -42,7 +42,7 @@ Advent of Code - 2019
 
  9-1:               4234906522         0ms        13 allocations     38.3kb peak memory
  9-2:                    60962         6ms        13 allocations     38.3kb peak memory
-10-1:                      309        15ms        22 allocations    137.9kb peak memory
+10-1:                      309        14ms        22 allocations    137.9kb peak memory
 10-2:                      416        15ms        43 allocations    137.9kb peak memory
 11-1:                     2319         2ms        24 allocations    129.2kb peak memory
 11-2:                                  0ms        29 allocations     39.9kb peak memory
@@ -60,13 +60,13 @@ Advent of Code - 2019
 13-2:                    13140        17ms        15 allocations    115.0kb peak memory
 14-1:                  1185296         0ms        70 allocations     11.0kb peak memory
 14-2:                  1376631         6ms        70 allocations     11.0kb peak memory
-15-1:                      254       105ms     27462 allocations     64.5kb peak memory
-15-2:                      268       112ms     27840 allocations     64.5kb peak memory
+15-1:                      254       105ms     27487 allocations     86.5kb peak memory
+15-2:                      268       108ms     27765 allocations     64.5kb peak memory
 16-1:                 68317988         2ms       663 allocations      0.8mb peak memory
-16-2:                 53850800        59ms        21 allocations      1.0mb peak memory
+16-2:                 53850800        58ms        21 allocations      1.0mb peak memory
 17-1:                     3292         0ms        24 allocations     69.2kb peak memory
 17-2:                   651043         1ms       787 allocations     69.2kb peak memory
-Total duration                       357ms
+Total duration                       351ms
 
 
 Advent of Code - 2020
@@ -83,7 +83,7 @@ Advent of Code - 2020
  5-2:                      569         0ms        10 allocations     13.5kb peak memory
  6-1:                     6259         0ms      1442 allocations      272b  peak memory
  6-2:                     3178         0ms      1442 allocations      464b  peak memory
- 7-1:                      248         0ms      3656 allocations    182.3kb peak memory
+ 7-1:                      248         0ms      3632 allocations    182.3kb peak memory
  7-2:                    57281         0ms      6990 allocations    153.8kb peak memory
  8-1:                     1487         0ms        18 allocations     19.4kb peak memory
  8-2:                     1607         0ms        24 allocations     20.0kb peak memory
@@ -98,21 +98,21 @@ Advent of Code - 2020
 13-1:                     2045         0ms         1 allocations        4b  peak memory
 13-2:          402251700208309         0ms         4 allocations      256b  peak memory
 14-1:           12512013221615         0ms         9 allocations     12.8kb peak memory
-14-2:            3905642473893         4ms       117 allocations      3.2mb peak memory
+14-2:            3905642473893         3ms       117 allocations      3.2mb peak memory
 15-1:                      206         0ms         2 allocations      7.9kb peak memory
-15-2:                      955       436ms         2 allocations    114.4mb peak memory
+15-2:                      955       422ms         2 allocations    114.4mb peak memory
 16-1:                    27870         0ms        55 allocations      1.6kb peak memory
 16-2:            3173135507987         0ms      1546 allocations     58.6kb peak memory
-17-1:                      213         3ms        46 allocations      8.2kb peak memory
-17-2:                     1624        97ms        60 allocations    119.0kb peak memory
+17-1:                      213         2ms        46 allocations      8.2kb peak memory
+17-2:                     1624       102ms        60 allocations    119.0kb peak memory
 18-1:           36382392389406         0ms      1497 allocations      4.1kb peak memory
 18-2:          381107029777968         0ms      1497 allocations      4.1kb peak memory
 19-1:                      182         0ms      1621 allocations     36.9kb peak memory
 19-2:                      334        51ms      1626 allocations     36.9kb peak memory
-20-1:          107399567124539         1ms       152 allocations     30.1kb peak memory
-20-2:                     1555         5ms       484 allocations     71.3kb peak memory
-Total duration                       648ms
+20-1:          107399567124539         0ms       152 allocations     30.1kb peak memory
+20-2:                     1555         2ms       468 allocations     67.5kb peak memory
+Total duration                       635ms
 
 
-Overall duration                    1006ms
+Overall duration                     986ms
 ```
