@@ -26,6 +26,7 @@ pub fn days() -> Vec<Solution> {
         solution!(18, day_eighteen_a, day_eighteen_b),
         solution!(19, day_nineteen_a, day_nineteen_b),
         solution!(20, day_twenty_a, day_twenty_b),
+        solution!(21, day_twenty_one_a, day_twenty_one_b),
     ]
 }
 
@@ -2152,9 +2153,10 @@ fn test_day_eighteen() {
 
 struct Rule {
     id: usize,
-    recursive: bool,
     matcher: Match,
 }
+
+#[derive(Debug, Clone)]
 enum Match {
     Simple(Vec<usize>),
     Pair(Vec<usize>, Vec<usize>),
@@ -2222,22 +2224,16 @@ impl std::str::FromStr for Rule {
         let res = match (match_one.len(), match_two.len()) {
             (0, 0) => Rule {
                 id,
-                recursive: false,
                 matcher: Match::Char(match_char),
             },
             (_, 0) => Rule {
                 id,
-                recursive: false,
                 matcher: Match::Simple(match_one),
             },
-            (_, _) => {
-                let recursive = match_one.contains(&id) || match_two.contains(&id);
-                Rule {
-                    id,
-                    recursive,
-                    matcher: Match::Pair(match_one, match_two),
-                }
-            }
+            (_, _) => Rule {
+                id,
+                matcher: Match::Pair(match_one, match_two),
+            },
         };
         Ok(res)
     }
@@ -2272,6 +2268,21 @@ impl std::fmt::Display for Rule {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum CnfRule {
+    Terminator(char),
+    Producer(usize, usize),
+}
+
+impl std::fmt::Display for CnfRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CnfRule::Terminator(c) => write!(f, "'{}'", c),
+            CnfRule::Producer(l, r) => write!(f, "{} {}", l, r),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct MatchState {
     idx: usize,
@@ -2280,26 +2291,230 @@ struct MatchState {
 
 struct RuleCollection {
     map: HashMap<usize, Rule>,
-    recursive_rules: Vec<usize>,
+    cnf_rules: Vec<(usize, CnfRule)>,
+    cnf_generator_idx: usize,
+}
+
+const SMALL_VEC_SIZE: usize = 2;
+#[derive(Debug, Clone)]
+struct SmallVec<T> {
+    vec: Vec<T>,
+    inline: [Option<T>; SMALL_VEC_SIZE],
+    len: usize,
+}
+
+impl<T: Copy> SmallVec<T> {
+    fn new() -> Self {
+        Self {
+            vec: Vec::new(),
+            inline: [None; SMALL_VEC_SIZE],
+            len: 0,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn push(&mut self, item: T) {
+        if self.len < SMALL_VEC_SIZE {
+            self.inline[self.len] = Some(item);
+        } else {
+            self.vec.push(item)
+        }
+        self.len += 1;
+    }
+
+    fn contains(&self, item: &T) -> bool
+    where
+        T: PartialEq<T>,
+    {
+        for i in 0..SMALL_VEC_SIZE {
+            if let Some(search) = self.inline[i].as_ref() {
+                if search == item {
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        self.vec.contains(item)
+    }
 }
 
 impl RuleCollection {
     fn new() -> Self {
         Self {
             map: HashMap::new(),
-            recursive_rules: Vec::new(),
+            cnf_rules: Vec::new(),
+            cnf_generator_idx: usize::MAX,
         }
     }
 
     fn insert<S: AsRef<str>>(&mut self, rule: S) {
         let rule: Rule = rule.as_ref().trim().parse().unwrap();
-        if rule.recursive {
-            self.recursive_rules.push(rule.id);
-        }
         self.map.insert(rule.id, rule);
     }
 
-    fn is_match(&self, s: &str) -> bool {
+    fn compile(&mut self) {
+        let rules: Vec<_> = self.map.drain().collect();
+
+        let mut simplified_rules = Vec::new();
+        let mut singular_rules = Vec::new();
+
+        for (_id, rule) in rules {
+            match rule.matcher {
+                Match::Pair(l, r) => {
+                    simplified_rules.push(Rule {
+                        id: rule.id,
+                        matcher: Match::Simple(l),
+                    });
+                    simplified_rules.push(Rule {
+                        id: rule.id,
+                        matcher: Match::Simple(r),
+                    });
+                }
+                _ => simplified_rules.push(rule),
+            }
+        }
+
+        for (idx, rule) in simplified_rules.iter().enumerate() {
+            match rule.matcher {
+                Match::Simple(ref l) if l.len() == 1 => singular_rules.push((rule.id, idx, l[0])),
+                _ => {}
+            }
+        }
+
+        for (id, single_idx, target) in singular_rules {
+            let mut new_val = simplified_rules
+                .iter()
+                .filter(|r| r.id == target)
+                .map(|r| &r.matcher)
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter();
+
+            if let Some((single, new_val)) =
+                simplified_rules.get_mut(single_idx).zip(new_val.next())
+            {
+                single.matcher = new_val;
+            }
+
+            for val in new_val {
+                simplified_rules.push(Rule { id, matcher: val })
+            }
+        }
+
+        let convert_list = |rule_id: usize,
+                            map: &mut Vec<(usize, CnfRule)>,
+                            list: &mut Vec<usize>,
+                            idx: &mut usize| {
+            if list.len() == 2 {
+                map.push((rule_id, CnfRule::Producer(list[0], list[1])));
+            } else if list.len() > 2 {
+                list.reverse();
+                let mut previous = None;
+                while let Some(item) = list.pop() {
+                    if let Some(prev) = previous {
+                        let id = if list.len() == 0 {
+                            rule_id
+                        } else {
+                            *idx -= 1;
+                            *idx
+                        };
+                        map.push((id, CnfRule::Producer(prev, item)));
+                        previous = Some(id);
+                    } else {
+                        previous = Some(item);
+                    }
+                }
+            } else {
+                panic!(
+                    "single or empty rules not supported: {} {:?}",
+                    rule_id, list
+                )
+            }
+        };
+
+        for rule in simplified_rules {
+            match rule.matcher {
+                Match::Simple(mut list) => {
+                    convert_list(
+                        rule.id,
+                        &mut self.cnf_rules,
+                        &mut list,
+                        &mut self.cnf_generator_idx,
+                    );
+                }
+                Match::Pair(mut left, mut right) => {
+                    convert_list(
+                        rule.id,
+                        &mut self.cnf_rules,
+                        &mut left,
+                        &mut self.cnf_generator_idx,
+                    );
+                    convert_list(
+                        rule.id,
+                        &mut self.cnf_rules,
+                        &mut right,
+                        &mut self.cnf_generator_idx,
+                    );
+                }
+                Match::Char(c) => {
+                    self.cnf_rules.push((rule.id, CnfRule::Terminator(c)));
+                }
+            }
+        }
+
+        self.cnf_rules.sort_by_key(|r| r.0);
+    }
+
+    fn is_cyk_match(&self, s: &str) -> bool {
+        let str_len = s.len();
+        let mut cyk_table = vec![vec![SmallVec::new(); str_len]; str_len];
+
+        for (c_idx, c) in s.chars().enumerate() {
+            for (id, r) in self.cnf_rules.iter() {
+                match r {
+                    CnfRule::Terminator(r_c) if *r_c == c => {
+                        cyk_table[0][c_idx].push(*id);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        for l in 2..=str_len {
+            for s in 1..=str_len - l + 1 {
+                for p in 1..=l - 1 {
+                    let b_idx = (p - 1, s - 1);
+                    let c_idx = (l - p - 1, s + p - 1);
+                    if cyk_table[b_idx.0][b_idx.1].len() == 0
+                        || cyk_table[c_idx.0][c_idx.1].len() == 0
+                    {
+                        continue;
+                    }
+                    for (a, r) in self.cnf_rules.iter() {
+                        match r {
+                            CnfRule::Producer(b, c) => {
+                                if cyk_table[b_idx.0][b_idx.1].contains(b)
+                                    && cyk_table[c_idx.0][c_idx.1].contains(c)
+                                {
+                                    cyk_table[l - 1][s - 1].push(*a);
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+        }
+
+        cyk_table[s.len() - 1][0].contains(&0)
+    }
+
+    fn is_non_recursive_match(&self, s: &str) -> bool {
         let r0 = self.map.get(&0);
 
         if let Some(r0) = r0 {
@@ -2308,7 +2523,7 @@ impl RuleCollection {
                 rec_count: 0,
             };
             let chars: Vec<_> = s.chars().collect();
-            let is_match = self.is_match_rec(r0, &chars, &mut state);
+            let is_match = self.is_match(r0, &chars, &mut state);
             if is_match && state.idx == s.len() {
                 true
             } else {
@@ -2319,7 +2534,7 @@ impl RuleCollection {
         }
     }
 
-    fn is_match_rec(&self, rule: &Rule, s: &[char], state: &mut MatchState) -> bool {
+    fn is_match(&self, rule: &Rule, s: &[char], state: &mut MatchState) -> bool {
         if state.idx >= s.len() {
             return false;
         }
@@ -2333,96 +2548,24 @@ impl RuleCollection {
                     false
                 }
             }
-            Match::Simple(rules) => self.is_list_match_rec(rules, s, state),
-            Match::Pair(_, right) if rule.recursive => {
-                let mut start_valid = true;
-                let mut end_valid = true;
-                let orig_idx = state.idx;
-                let mut rec_count = state.rec_count;
-
-                if rec_count == 0 {
-                    return false;
-                }
-
-                while rec_count > 0 {
-                    start_valid &= self.is_list_match_rec(&right[0..1], s, state);
-                    if !start_valid {
-                        break;
-                    }
-                    rec_count -= 1;
-                }
-
-                if right.len() == 3 {
-                    let mut rec_count = state.rec_count;
-                    while rec_count > 0 {
-                        end_valid &= self.is_list_match_rec(&right[2..3], s, state);
-                        if !end_valid {
-                            break;
-                        }
-                        rec_count -= 1;
-                    }
-                }
-
-                if !start_valid || !end_valid {
-                    state.idx = orig_idx;
-                }
-
-                start_valid && end_valid
-            }
+            Match::Simple(rules) => self.is_list_match(rules, s, state),
             Match::Pair(left, right) => {
-                self.is_list_match_rec(left, s, state) || self.is_list_match_rec(right, s, state)
+                self.is_list_match(left, s, state) || self.is_list_match(right, s, state)
             }
         }
     }
 
-    fn is_list_match_rec(&self, list: &[usize], s: &[char], state: &mut MatchState) -> bool {
+    fn is_list_match(&self, list: &[usize], s: &[char], state: &mut MatchState) -> bool {
         let orig_idx = state.idx;
-        if list.iter().any(|r| self.recursive_rules.contains(r)) {
-            let mut list = list.iter().filter_map(|id| self.map.get(id));
-            let first_rule = list.next().unwrap();
-            let last_rule = list.next().unwrap();
-
-            let mut count = s.len();
-            loop {
+        let mut is_match = true;
+        for r in list.iter().filter_map(|id| self.map.get(id)) {
+            if !self.is_match(r, s, state) {
+                is_match = false;
                 state.idx = orig_idx;
-                state.rec_count = count;
-                let first_match = self.is_match_rec(first_rule, s, state);
-                if !first_match {
-                    if count == 1 {
-                        return false;
-                    } else {
-                        count -= 1;
-                        continue;
-                    }
-                }
-
-                let mut inner_count = s.len() - state.idx;
-                while inner_count > 0 {
-                    state.rec_count = inner_count;
-                    let second_match = self.is_match_rec(last_rule, s, state);
-                    if second_match && state.idx == s.len() {
-                        return true;
-                    } else {
-                        inner_count -= 1;
-                    }
-                }
-                count -= 1;
-
-                if count == 0 {
-                    return false;
-                }
+                break;
             }
-        } else {
-            let mut is_match = true;
-            for r in list.iter().filter_map(|id| self.map.get(id)) {
-                if !self.is_match_rec(r, s, state) {
-                    is_match = false;
-                    state.idx = orig_idx;
-                    break;
-                }
-            }
-            is_match
         }
+        is_match
     }
 }
 
@@ -2436,10 +2579,9 @@ fn day_nineteen_a(input: &str) -> usize {
         rules.insert(line);
     }
 
-    lines.filter(|l| rules.is_match(l)).count()
+    lines.filter(|l| rules.is_non_recursive_match(l)).count()
 }
 
-// TODO very disappointed in this not being a general solution
 fn day_nineteen_b(input: &str) -> usize {
     let mut lines = input.trim().lines();
     let mut rules = RuleCollection::new();
@@ -2453,7 +2595,9 @@ fn day_nineteen_b(input: &str) -> usize {
     rules.insert("8: 42 | 42 8");
     rules.insert("11: 42 31 | 42 11 31");
 
-    lines.filter(|l| rules.is_match(l)).count()
+    rules.compile();
+
+    lines.filter(|l| rules.is_cyk_match(l)).count()
 }
 
 #[test]
@@ -2474,7 +2618,6 @@ abbbab
 aaabbb
 aaaabbb"#;
     run_a(i, 002);
-    run_b(i, 002);
 
     let i = r#"42: 9 14 | 10 1
 9: 14 27 | 1 26
@@ -2848,7 +2991,8 @@ impl std::fmt::Display for Tile {
             }
             write!(f, "\n")?;
         }
-        write!(f, "\n")
+
+        Ok(())
     }
 }
 
@@ -2976,7 +3120,7 @@ impl std::fmt::Display for TilePattern {
             write!(f, "\n")?;
         }
 
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -2988,7 +3132,7 @@ struct TileImage {
     max: (usize, usize),
 }
 
-const IMAGE_CENTER: usize = 100000;
+const IMAGE_CENTER: usize = usize::MAX / 2;
 
 impl TileImage {
     fn new() -> Self {
@@ -3162,7 +3306,7 @@ impl<'a> std::fmt::Display for Borderless<'a> {
             write!(f, "\n")?;
         }
 
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -3185,7 +3329,7 @@ impl std::fmt::Display for TileImage {
             write!(f, "\n")?;
         }
 
-        write!(f, "\n")
+        Ok(())
     }
 }
 
@@ -3394,4 +3538,136 @@ Tile 3079:
 
     run_a(i, 20899048083289);
     run_b(i, 273);
+}
+
+fn day_twenty_one_a(input: &str) -> u64 {
+    let mut all_allergens: HashMap<_, Vec<_>> = HashMap::new();
+    let mut all_ingredients = HashMap::new();
+    for line in input.trim().lines() {
+        let mut line = line.trim().trim_end_matches(')').split(" (contains ");
+
+        let ingredients = line.next().unwrap();
+        let allergens = line.next().unwrap();
+
+        let ingredients: HashSet<_> = ingredients.split_whitespace().collect();
+
+        let allergens = allergens.split(',').map(|a| a.trim());
+        for allergen in allergens {
+            all_allergens
+                .entry(allergen)
+                .and_modify(|potential_ingredients| {
+                    let mut union: Vec<&str> = Vec::new();
+                    for ingredient in potential_ingredients.into_iter() {
+                        if ingredients.contains(*ingredient) {
+                            union.push(*ingredient);
+                        }
+                    }
+
+                    *potential_ingredients = union;
+                })
+                .or_insert_with(|| ingredients.iter().map(|s| s.clone()).collect());
+        }
+
+        for ingredient in ingredients {
+            all_ingredients
+                .entry(ingredient)
+                .and_modify(|existing_count| *existing_count += 1)
+                .or_insert(1);
+        }
+    }
+
+    for (_allergen, potential_ingredients) in all_allergens {
+        for ingredient in potential_ingredients {
+            all_ingredients.remove(ingredient);
+        }
+    }
+
+    all_ingredients.values().sum()
+}
+
+fn day_twenty_one_b(input: &str) -> String {
+    let mut all_allergens: HashMap<_, Vec<_>> = HashMap::new();
+
+    for line in input.trim().lines() {
+        let mut line = line.trim().trim_end_matches(')').split(" (contains ");
+
+        let ingredients = line.next().unwrap();
+        let allergens = line.next().unwrap();
+
+        let ingredients: HashSet<_> = ingredients.split_whitespace().collect();
+
+        let allergens = allergens.split(',').map(|a| a.trim());
+        for allergen in allergens {
+            all_allergens
+                .entry(allergen)
+                .and_modify(|potential_ingredients| {
+                    let mut union: Vec<&str> = Vec::new();
+                    for ingredient in potential_ingredients.into_iter() {
+                        if ingredients.contains(*ingredient) {
+                            union.push(*ingredient);
+                        }
+                    }
+
+                    *potential_ingredients = union;
+                })
+                .or_insert_with(|| ingredients.iter().map(|s| s.clone()).collect());
+        }
+    }
+
+    let mut allergen_mapping: Vec<(&str, &str)> = Vec::new();
+
+    while allergen_mapping.len() < all_allergens.len() {
+        for (allergen, potential_ingredients) in all_allergens.iter_mut() {
+            if potential_ingredients.len() == 0 {
+                continue;
+            }
+
+            let mut i = 0;
+            while i < potential_ingredients.len() {
+                if allergen_mapping
+                    .iter()
+                    .any(|am| am.1 == potential_ingredients[i])
+                {
+                    potential_ingredients.remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+
+            if potential_ingredients.len() == 1 {
+                let ingredient = potential_ingredients.remove(0);
+                allergen_mapping.push((*allergen, ingredient));
+            }
+        }
+    }
+
+    allergen_mapping.sort_by_key(|am| am.0);
+
+    let mut result = String::new();
+    let mut first = true;
+    for (_allergen, ingredient) in allergen_mapping {
+        if !first {
+            result.push(',');
+        }
+        result.push_str(ingredient);
+        first = false;
+    }
+
+    result
+}
+
+#[test]
+fn test_day_twentyone() {
+    let run_a = |input, res| assert_eq!(day_twenty_one_a(input), res);
+    let run_b = |input, res| assert_eq!(day_twenty_one_b(input), res);
+
+    let i = r#"
+mxmxvkd kfcds sqjhc nhms (contains dairy, fish)
+trh fvjkl sbzzf mxmxvkd (contains dairy)
+sqjhc fvjkl (contains soy)
+sqjhc mxmxvkd sbzzf (contains fish)
+"#;
+
+    run_a(i, 5);
+    run_b(i, "mxmxvkd,sqjhc,fvjkl");
 }
