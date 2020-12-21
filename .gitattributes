@@ -1,1 +1,1 @@
-/problems/*/*.txt text eol=lf
+/input/**/*.txt text eol=lf

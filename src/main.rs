@@ -215,7 +215,7 @@ impl InputDownloader {
         event: u32,
         day: u32,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let path = std::path::PathBuf::from(format!("problems/{}/day{}.txt", event, day));
+        let path = std::path::PathBuf::from(format!("input/{}/day{}.txt", event, day));
         if path.exists() {
             let input = std::fs::read_to_string(&path)?;
             Ok(input)
@@ -228,7 +228,7 @@ impl InputDownloader {
             let res = req.send()?;
             let res = res.error_for_status()?;
             let input = res.text()?;
-            std::fs::create_dir_all(&path.parent().expect("problem path should have parent"))?;
+            std::fs::create_dir_all(&path.parent().expect("input path should have parent"))?;
             std::fs::write(&path, &input)?;
 
             Ok(input)
