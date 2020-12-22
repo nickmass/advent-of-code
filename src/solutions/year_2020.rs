@@ -27,6 +27,7 @@ pub fn days() -> Vec<Solution> {
         solution!(19, day_nineteen_a, day_nineteen_b),
         solution!(20, day_twenty_a, day_twenty_b),
         solution!(21, day_twenty_one_a, day_twenty_one_b),
+        solution!(22, day_twenty_two_a, day_twenty_two_b),
     ]
 }
 
@@ -2152,14 +2153,14 @@ fn test_day_eighteen() {
 }
 
 struct Rule {
-    id: usize,
+    id: CnfRuleId,
     matcher: Match,
 }
 
 #[derive(Debug, Clone)]
 enum Match {
-    Simple(Vec<usize>),
-    Pair(Vec<usize>, Vec<usize>),
+    Simple(Vec<CnfRuleId>),
+    Pair(Vec<CnfRuleId>, Vec<CnfRuleId>),
     Char(char),
 }
 
@@ -2195,7 +2196,7 @@ impl std::str::FromStr for Rule {
                     stage = Stage::Char;
                 }
                 c if c.is_ascii_digit() && stage != Stage::Char => {
-                    num = Some((num.unwrap_or(0) * 10) + (c as u8 - '0' as u8) as usize);
+                    num = Some((num.unwrap_or(0) * 10) + (c as u8 - '0' as u8) as CnfRuleId);
                 }
                 c if c.is_whitespace() => {
                     if let Some(next) = num {
@@ -2271,7 +2272,7 @@ impl std::fmt::Display for Rule {
 #[derive(Debug, Clone, Copy)]
 enum CnfRule {
     Terminator(char),
-    Producer(usize, usize),
+    Producer(CnfRuleId, CnfRuleId),
 }
 
 impl std::fmt::Display for CnfRule {
@@ -2290,65 +2291,19 @@ struct MatchState {
 }
 
 struct RuleCollection {
-    map: HashMap<usize, Rule>,
-    cnf_rules: Vec<(usize, CnfRule)>,
-    cnf_generator_idx: usize,
+    map: HashMap<CnfRuleId, Rule>,
+    cnf_rules: Vec<(CnfRuleId, CnfRule)>,
+    cnf_generator_idx: CnfRuleId,
 }
 
-const SMALL_VEC_SIZE: usize = 2;
-#[derive(Debug, Clone)]
-struct SmallVec<T> {
-    vec: Vec<T>,
-    inline: [Option<T>; SMALL_VEC_SIZE],
-    len: usize,
-}
-
-impl<T: Copy> SmallVec<T> {
-    fn new() -> Self {
-        Self {
-            vec: Vec::new(),
-            inline: [None; SMALL_VEC_SIZE],
-            len: 0,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.len
-    }
-
-    fn push(&mut self, item: T) {
-        if self.len < SMALL_VEC_SIZE {
-            self.inline[self.len] = Some(item);
-        } else {
-            self.vec.push(item)
-        }
-        self.len += 1;
-    }
-
-    fn contains(&self, item: &T) -> bool
-    where
-        T: PartialEq<T>,
-    {
-        for i in 0..SMALL_VEC_SIZE {
-            if let Some(search) = self.inline[i].as_ref() {
-                if search == item {
-                    return true;
-                }
-            } else {
-                return false;
-            }
-        }
-
-        self.vec.contains(item)
-    }
-}
+type CnfRuleId = u8;
 
 impl RuleCollection {
     fn new() -> Self {
         Self {
             map: HashMap::new(),
             cnf_rules: Vec::new(),
-            cnf_generator_idx: usize::MAX,
+            cnf_generator_idx: CnfRuleId::MAX,
         }
     }
 
@@ -2406,10 +2361,10 @@ impl RuleCollection {
             }
         }
 
-        let convert_list = |rule_id: usize,
-                            map: &mut Vec<(usize, CnfRule)>,
-                            list: &mut Vec<usize>,
-                            idx: &mut usize| {
+        let convert_list = |rule_id: CnfRuleId,
+                            map: &mut Vec<(CnfRuleId, CnfRule)>,
+                            list: &mut Vec<CnfRuleId>,
+                            idx: &mut CnfRuleId| {
             if list.len() == 2 {
                 map.push((rule_id, CnfRule::Producer(list[0], list[1])));
             } else if list.len() > 2 {
@@ -2472,15 +2427,14 @@ impl RuleCollection {
 
     fn is_cyk_match(&self, s: &str) -> bool {
         let str_len = s.len();
-        let mut cyk_table = vec![vec![SmallVec::new(); str_len]; str_len];
+        let mut cyk_table = vec![vec![Vec::new(); str_len]; str_len];
 
         for (c_idx, c) in s.chars().enumerate() {
             for (id, r) in self.cnf_rules.iter() {
-                match r {
-                    CnfRule::Terminator(r_c) if *r_c == c => {
+                if let &CnfRule::Terminator(r_c) = r {
+                    if r_c == c {
                         cyk_table[0][c_idx].push(*id);
                     }
-                    _ => (),
                 }
             }
         }
@@ -2496,22 +2450,19 @@ impl RuleCollection {
                         continue;
                     }
                     for (a, r) in self.cnf_rules.iter() {
-                        match r {
-                            CnfRule::Producer(b, c) => {
-                                if cyk_table[b_idx.0][b_idx.1].contains(b)
-                                    && cyk_table[c_idx.0][c_idx.1].contains(c)
-                                {
-                                    cyk_table[l - 1][s - 1].push(*a);
-                                }
+                        if let &CnfRule::Producer(b, c) = r {
+                            if cyk_table[b_idx.0][b_idx.1].contains(&b)
+                                && cyk_table[c_idx.0][c_idx.1].contains(&c)
+                            {
+                                cyk_table[l - 1][s - 1].push(*a);
                             }
-                            _ => (),
                         }
                     }
                 }
             }
         }
 
-        cyk_table[s.len() - 1][0].contains(&0)
+        cyk_table[str_len - 1][0].contains(&0)
     }
 
     fn is_non_recursive_match(&self, s: &str) -> bool {
@@ -2555,7 +2506,7 @@ impl RuleCollection {
         }
     }
 
-    fn is_list_match(&self, list: &[usize], s: &[char], state: &mut MatchState) -> bool {
+    fn is_list_match(&self, list: &[CnfRuleId], s: &[char], state: &mut MatchState) -> bool {
         let orig_idx = state.idx;
         let mut is_match = true;
         for r in list.iter().filter_map(|id| self.map.get(id)) {
@@ -3657,7 +3608,7 @@ fn day_twenty_one_b(input: &str) -> String {
 }
 
 #[test]
-fn test_day_twentyone() {
+fn test_day_twenty_one() {
     let run_a = |input, res| assert_eq!(day_twenty_one_a(input), res);
     let run_b = |input, res| assert_eq!(day_twenty_one_b(input), res);
 
@@ -3670,4 +3621,205 @@ sqjhc mxmxvkd sbzzf (contains fish)
 
     run_a(i, 5);
     run_b(i, "mxmxvkd,sqjhc,fvjkl");
+}
+
+fn day_twenty_two_a(input: &str) -> u64 {
+    let mut player_one = VecDeque::new();
+    let mut player_two = VecDeque::new();
+
+    let mut second_deck = false;
+
+    for line in input.lines() {
+        if line.len() == 0 {
+            second_deck = true;
+            continue;
+        }
+
+        if line.contains('P') {
+            continue;
+        }
+
+        let n: u64 = line.parse().unwrap();
+
+        if second_deck {
+            player_two.push_front(n);
+        } else {
+            player_one.push_front(n);
+        }
+    }
+
+    while player_one.len() > 0 && player_two.len() > 0 {
+        let one = player_one.pop_back().unwrap();
+        let two = player_two.pop_back().unwrap();
+        if one > two {
+            player_one.push_front(one);
+            player_one.push_front(two);
+        } else {
+            player_two.push_front(two);
+            player_two.push_front(one);
+        }
+    }
+
+    let winner = if player_one.len() > 0 {
+        player_one
+    } else {
+        player_two
+    };
+
+    let mut result = 0;
+    for (i, card) in winner.into_iter().enumerate() {
+        result += (i as u64 + 1) * card;
+    }
+
+    result
+}
+
+fn day_twenty_two_b(input: &str) -> u64 {
+    let mut player_one = VecDeque::new();
+    let mut player_two = VecDeque::new();
+
+    let mut second_deck = false;
+
+    for line in input.lines() {
+        if line.len() == 0 {
+            second_deck = true;
+            continue;
+        }
+
+        if line.contains('P') {
+            continue;
+        }
+
+        let n: u8 = line.parse().unwrap();
+
+        if second_deck {
+            player_two.push_front(n);
+        } else {
+            player_one.push_front(n);
+        }
+    }
+
+    let winner = combat_game(&mut player_one, &mut player_two);
+
+    let winner = match winner {
+        Winner::PlayerOne => player_one,
+        Winner::PlayerTwo => player_two,
+    };
+
+    let mut result = 0;
+    for (i, card) in winner.into_iter().enumerate() {
+        result += (i as u64 + 1) * card as u64;
+    }
+
+    result
+}
+
+type Hand = VecDeque<u8>;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum Winner {
+    PlayerOne,
+    PlayerTwo,
+}
+
+fn combat_game(p_one: &mut Hand, p_two: &mut Hand) -> Winner {
+    let mut previous_game_states = HashSet::new();
+
+    while p_one.len() > 0 && p_two.len() > 0 {
+        combat_round(p_one, p_two);
+        let state = HandState::from((&*p_one, &*p_two));
+        if previous_game_states.contains(&state) {
+            return Winner::PlayerOne;
+        } else {
+            previous_game_states.insert(state);
+        }
+    }
+
+    if p_one.len() > 0 {
+        Winner::PlayerOne
+    } else {
+        Winner::PlayerTwo
+    }
+}
+
+fn combat_round(p_one: &mut Hand, p_two: &mut Hand) {
+    let one = p_one.pop_back().unwrap();
+    let two = p_two.pop_back().unwrap();
+
+    if p_one.len() >= one as usize && p_two.len() >= two as usize {
+        let mut sub_p_one = p_one
+            .iter()
+            .skip(p_one.len() - one as usize)
+            .copied()
+            .collect();
+        let mut sub_p_two = p_two
+            .iter()
+            .skip(p_two.len() - two as usize)
+            .copied()
+            .collect();
+        let winner = combat_game(&mut sub_p_one, &mut sub_p_two);
+        match winner {
+            Winner::PlayerOne => {
+                p_one.push_front(one);
+                p_one.push_front(two);
+            }
+            Winner::PlayerTwo => {
+                p_two.push_front(two);
+                p_two.push_front(one);
+            }
+        }
+    } else if one > two {
+        p_one.push_front(one);
+        p_one.push_front(two);
+    } else if two > one {
+        p_two.push_front(two);
+        p_two.push_front(one);
+    } else {
+        panic!("someone has to have the higher card, invalid decks")
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct HandState {
+    cards: [u8; 50],
+    player_one_len: u8,
+}
+
+impl From<(&Hand, &Hand)> for HandState {
+    fn from((p_one, p_two): (&Hand, &Hand)) -> Self {
+        let mut cards = [0; 50];
+        let player_one_len = p_one.len() as u8;
+
+        for (i, c) in p_one.iter().chain(p_two.iter()).enumerate() {
+            cards[i] = *c;
+        }
+
+        Self {
+            cards,
+            player_one_len,
+        }
+    }
+}
+
+#[test]
+fn test_day_twenty_two() {
+    let run_a = |input, res| assert_eq!(day_twenty_two_a(input), res);
+    let run_b = |input, res| assert_eq!(day_twenty_two_b(input), res);
+
+    let i = r#"Player 1:
+9
+2
+6
+3
+1
+
+Player 2:
+5
+8
+4
+7
+10"#;
+
+    run_a(i, 306);
+    run_b(i, 291);
 }
