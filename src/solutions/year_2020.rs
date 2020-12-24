@@ -28,6 +28,8 @@ pub fn days() -> Vec<Solution> {
         solution!(20, day_twenty_a, day_twenty_b),
         solution!(21, day_twenty_one_a, day_twenty_one_b),
         solution!(22, day_twenty_two_a, day_twenty_two_b),
+        solution!(23, day_twenty_three_a, day_twenty_three_b),
+        solution!(24, day_twenty_four_a, day_twenty_four_b),
     ]
 }
 
@@ -3951,4 +3953,448 @@ Player 2:
 
     run_a(i, 306);
     run_b(i, 291);
+}
+
+fn day_twenty_three_a(input: &str) -> u64 {
+    let cups = day_twenty_three(input, 9, 100);
+    let one = cups.iter().position(|n| *n == 1).unwrap();
+    cups.iter()
+        .cycle()
+        .skip(one + 1)
+        .take(8)
+        .fold(0, |mut acc, &n| {
+            acc *= 10;
+            acc += n as u64;
+            acc
+        })
+}
+
+fn day_twenty_three_b(_input: &str) -> &'static str {
+    "spent one hour brute-forcing the answer - needs a complete re-work"
+    /*
+        let cups = day_twenty_three(input, 1_000_000, 10_000_000);
+        let one = cups.iter().position(|n| *n == 1).unwrap();
+        let mut results = cups.iter().cycle().skip(one + 1).copied();
+
+        let a = results.next().unwrap() as u64;
+        let b = results.next().unwrap() as u64;
+
+        a * b
+    */
+}
+
+fn day_twenty_three(input: &str, max: u32, iterations: u32) -> Vec<u32> {
+    let mut cups: Vec<u32> = input
+        .trim()
+        .chars()
+        .map(|n| (n as u8 - b'0') as u32)
+        .chain(10..=max)
+        .collect();
+
+    let mut current_cup = 0;
+    for i in 0..iterations {
+        if i % 1_000_000 == 0 && i > 0 {
+            println!("{}", i);
+        }
+        let mut pick_up = (current_cup + 1) % cups.len();
+        let cup_val = cups[current_cup % cups.len()];
+        let mut dest = cup_val - 1;
+        if dest == 0 {
+            dest = max;
+        }
+        let one = cups.remove(pick_up);
+        if pick_up < current_cup {
+            current_cup -= 1;
+        }
+        if pick_up >= cups.len() {
+            pick_up = 0;
+        }
+        let two = cups.remove(pick_up);
+        if pick_up < current_cup {
+            current_cup -= 1;
+        }
+        if pick_up >= cups.len() {
+            pick_up = 0;
+        }
+        let three = cups.remove(pick_up);
+        if pick_up < current_cup {
+            current_cup -= 1;
+        }
+
+        while dest == one || dest == two || dest == three {
+            if dest == 1 {
+                dest = max;
+            } else {
+                dest -= 1;
+            }
+        }
+
+        let find = cups
+            .iter()
+            .enumerate()
+            .find(|(_p, n)| **n == dest)
+            .unwrap()
+            .0;
+
+        let find = find + 1;
+        let find = if find >= (max - 3) as usize { 0 } else { find } as usize;
+        cups.insert(find, three);
+        cups.insert(find, two);
+        cups.insert(find, one);
+
+        if find <= current_cup {
+            current_cup += 3;
+        }
+
+        current_cup = (current_cup + 1) % cups.len();
+    }
+
+    cups
+}
+
+#[test]
+fn test_day_twenty_three() {
+    let run_a = |input, res| assert_eq!(day_twenty_three_a(input), res);
+    //let run_b = |input, res| assert_eq!(day_twenty_three_b(input), res);
+
+    let i = r#"389125467"#;
+
+    run_a(i, 67384529);
+    //run_b(i, 149245887792);
+}
+
+fn day_twenty_four_a(input: &str) -> u64 {
+    let tiles: Vec<Vec<_>> = input
+        .trim()
+        .lines()
+        .map(|line| {
+            let mut tile = Vec::new();
+            let mut idx = 0;
+            while idx < line.len() {
+                let dir = if idx == line.len() - 1 {
+                    if &line[idx..] == "e" {
+                        HexDir::East
+                    } else {
+                        HexDir::West
+                    }
+                } else {
+                    match &line[idx..idx + 2] {
+                        "sw" => HexDir::SouthWest,
+                        "se" => HexDir::SouthEast,
+                        "nw" => HexDir::NorthWest,
+                        "ne" => HexDir::NorthEast,
+                        d if d.starts_with("e") => HexDir::East,
+                        d if d.starts_with("w") => HexDir::West,
+                        _ => unreachable!(),
+                    }
+                };
+
+                match dir {
+                    HexDir::East | HexDir::West => idx += 1,
+                    _ => idx += 2,
+                }
+
+                tile.push(dir);
+            }
+
+            tile
+        })
+        .collect();
+
+    let mut flips: HashMap<_, bool> = HashMap::new();
+
+    for tile in tiles.iter() {
+        let mut x = 0;
+        let mut y = 0;
+        let mut z = 0;
+
+        for movement in tile.iter() {
+            let (o_x, o_y, o_z) = movement.offset();
+            x += o_x;
+            y += o_y;
+            z += o_z;
+        }
+
+        flips
+            .entry((x, y, z))
+            .and_modify(|f| *f = !*f)
+            .or_insert(true);
+    }
+
+    flips.values().filter(|f| **f).count() as u64
+}
+
+fn day_twenty_four_b(input: &str) -> u64 {
+    let tiles: Vec<Vec<_>> = input
+        .trim()
+        .lines()
+        .map(|line| {
+            let mut tile = Vec::new();
+            let mut idx = 0;
+            while idx < line.len() {
+                let dir = if idx == line.len() - 1 {
+                    if &line[idx..] == "e" {
+                        HexDir::East
+                    } else {
+                        HexDir::West
+                    }
+                } else {
+                    match &line[idx..idx + 2] {
+                        "sw" => HexDir::SouthWest,
+                        "se" => HexDir::SouthEast,
+                        "nw" => HexDir::NorthWest,
+                        "ne" => HexDir::NorthEast,
+                        d if d.starts_with("e") => HexDir::East,
+                        d if d.starts_with("w") => HexDir::West,
+                        _ => unreachable!(),
+                    }
+                };
+
+                match dir {
+                    HexDir::East | HexDir::West => idx += 1,
+                    _ => idx += 2,
+                }
+
+                tile.push(dir);
+            }
+
+            tile
+        })
+        .collect();
+
+    let mut flips: HashMap<_, bool> = HashMap::new();
+    let mut max = (0, 0, 0);
+    let mut min = (0, 0, 0);
+
+    for tile in tiles.iter() {
+        let mut x = 0;
+        let mut y = 0;
+        let mut z = 0;
+
+        for movement in tile.iter() {
+            let (o_x, o_y, o_z) = movement.offset();
+            x += o_x;
+            y += o_y;
+            z += o_z;
+        }
+
+        max.0 = max.0.max(x);
+        max.1 = max.1.max(y);
+        max.2 = max.2.max(z);
+
+        min.0 = min.0.min(x);
+        min.1 = min.1.min(y);
+        min.2 = min.2.min(z);
+
+        flips
+            .entry((x, y, z))
+            .and_modify(|f| *f = !*f)
+            .or_insert(true);
+    }
+
+    max.0 = max.0.max(max.0 + 1);
+    max.1 = max.1.max(max.1 + 1);
+    max.2 = max.2.max(max.2 + 1);
+
+    min.0 = min.0.min(min.0 - 1);
+    min.1 = min.1.min(min.1 - 1);
+    min.2 = min.2.min(min.2 - 1);
+
+    let days = 100;
+
+    let mut hex_grid = HexGrid::new(
+        min.0 - days,
+        max.0 + days,
+        min.1 - days,
+        max.1 + days,
+        min.2 - days,
+        max.2 + days,
+    );
+    let mut next_grid = hex_grid.clone();
+
+    for (pos, v) in flips.iter() {
+        hex_grid.set(*pos, *v);
+    }
+
+    for _day in 0..days {
+        for x in min.0..=max.0 {
+            for y in min.1..=max.1 {
+                for z in min.2..=max.2 {
+                    let neighbors = hex_grid.count_neighbors((x, y, z));
+                    let t = match hex_grid.get((x, y, z)) {
+                        true if neighbors == 0 || neighbors > 2 => false,
+                        false if neighbors == 2 => {
+                            max.0 = max.0.max(x + 1);
+                            max.1 = max.1.max(y + 1);
+                            max.2 = max.2.max(z + 1);
+
+                            min.0 = min.0.min(x - 1);
+                            min.1 = min.1.min(y - 1);
+                            min.2 = min.2.min(z - 1);
+
+                            true
+                        }
+                        o => o,
+                    };
+
+                    next_grid.set((x, y, z), t);
+                }
+            }
+        }
+        std::mem::swap(&mut hex_grid, &mut next_grid);
+    }
+
+    hex_grid.count()
+}
+
+#[derive(Clone)]
+struct HexGrid {
+    cells: Vec<bool>,
+    x_min: i32,
+    x_max: i32,
+    y_min: i32,
+    y_max: i32,
+    z_min: i32,
+    z_max: i32,
+    x_size: usize,
+    y_size: usize,
+    z_size: usize,
+}
+
+impl HexGrid {
+    fn new(x_min: i32, x_max: i32, y_min: i32, y_max: i32, z_min: i32, z_max: i32) -> Self {
+        let x_size = (x_min.abs() + x_max) as usize + 1;
+        let y_size = (y_min.abs() + y_max) as usize + 1;
+        let z_size = (z_min.abs() + z_max) as usize + 1;
+        Self {
+            cells: vec![false; x_size * y_size * z_size],
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            z_min,
+            z_max,
+            x_size,
+            y_size,
+            z_size,
+        }
+    }
+
+    fn get(&self, (x, y, z): (i32, i32, i32)) -> bool {
+        if x <= self.x_min
+            || x >= self.x_max
+            || y <= self.y_min
+            || y >= self.y_max
+            || z <= self.z_min
+            || z >= self.z_max
+        {
+            panic!("hexgrid out of bounds")
+        }
+
+        let x = (x + self.x_min.abs()) as usize;
+        let y = (y + self.y_min.abs()) as usize;
+        let z = (z + self.z_min.abs()) as usize;
+
+        self.cells[(z * self.y_size * self.x_size) + (y * self.x_size) + x]
+    }
+
+    fn set(&mut self, (x, y, z): (i32, i32, i32), val: bool) {
+        if x <= self.x_min
+            || x >= self.x_max
+            || y <= self.y_min
+            || y >= self.y_max
+            || z <= self.z_min
+            || z >= self.z_max
+        {
+            panic!("hexgrid out of bounds")
+        }
+
+        let x = (x + self.x_min.abs()) as usize;
+        let y = (y + self.y_min.abs()) as usize;
+        let z = (z + self.z_min.abs()) as usize;
+
+        self.cells[(z * self.y_size * self.x_size) + (y * self.x_size) + x] = val
+    }
+
+    fn count_neighbors(&self, position: (i32, i32, i32)) -> u32 {
+        let mut sum = 0;
+
+        let mut do_sum = |dir: HexDir| {
+            let new_dir = dir.add(position);
+            if self.get(new_dir) {
+                sum += 1;
+            }
+        };
+
+        do_sum(HexDir::East);
+        do_sum(HexDir::SouthEast);
+        do_sum(HexDir::SouthWest);
+        do_sum(HexDir::West);
+        do_sum(HexDir::NorthWest);
+        do_sum(HexDir::NorthEast);
+
+        sum
+    }
+
+    fn count(&self) -> u64 {
+        self.cells.iter().filter(|f| **f).count() as u64
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum HexDir {
+    East,
+    SouthEast,
+    SouthWest,
+    West,
+    NorthWest,
+    NorthEast,
+}
+
+impl HexDir {
+    fn offset(&self) -> (i32, i32, i32) {
+        match self {
+            HexDir::West => (-1, 1, 0),
+            HexDir::SouthWest => (-1, 0, 1),
+            HexDir::SouthEast => (0, -1, 1),
+            HexDir::East => (1, -1, 0),
+            HexDir::NorthEast => (1, 0, -1),
+            HexDir::NorthWest => (0, 1, -1),
+        }
+    }
+
+    fn add(&self, other: (i32, i32, i32)) -> (i32, i32, i32) {
+        let offset = self.offset();
+        (other.0 + offset.0, other.1 + offset.1, other.2 + offset.2)
+    }
+}
+
+#[test]
+fn test_day_twenty_four() {
+    let run_a = |input, res| assert_eq!(day_twenty_four_a(input), res);
+    let run_b = |input, res| assert_eq!(day_twenty_four_b(input), res);
+
+    let i = r#"sesenwnenenewseeswwswswwnenewsewsw
+neeenesenwnwwswnenewnwwsewnenwseswesw
+seswneswswsenwwnwse
+nwnwneseeswswnenewneswwnewseswneseene
+swweswneswnenwsewnwneneseenw
+eesenwseswswnenwswnwnwsewwnwsene
+sewnenenenesenwsewnenwwwse
+wenwwweseeeweswwwnwwe
+wsweesenenewnwwnwsenewsenwwsesesenwne
+neeswseenwwswnwswswnw
+nenwswwsewswnenenewsenwsenwnesesenew
+enewnwewneswsewnwswenweswnenwsenwsw
+sweneswneswneneenwnewenewwneswswnese
+swwesenesewenwneswnwwneseswwne
+enesenwswwswneneswsenwnewswseenwsese
+wnwnesenesenenwwnenwsewesewsesesew
+nenewswnwewswnenesenwnesewesw
+eneswnwswnwsenenwnwnwwseeswneewsenese
+neswnwewnwnwseenwseesewsenwsweewe
+wseweeenwnesenwwwswnew"#;
+
+    run_a(i, 10);
+    run_b(i, 2208);
 }
