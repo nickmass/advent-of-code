@@ -3956,112 +3956,122 @@ Player 2:
     run_b(i, 291);
 }
 
-fn day_twenty_three_a(input: &str) -> u64 {
-    let cups = day_twenty_three(input, 9, 100);
-    let one = cups.iter().position(|n| *n == 1).unwrap();
-    cups.iter()
-        .cycle()
-        .skip(one + 1)
-        .take(8)
-        .fold(0, |mut acc, &n| {
-            acc *= 10;
-            acc += n as u64;
-            acc
-        })
-}
-
-fn day_twenty_three_b(_input: &str) -> &'static str {
-    "spent one hour brute-forcing the answer - needs a complete re-work"
-    /*
-        let cups = day_twenty_three(input, 1_000_000, 10_000_000);
-        let one = cups.iter().position(|n| *n == 1).unwrap();
-        let mut results = cups.iter().cycle().skip(one + 1).copied();
-
-        let a = results.next().unwrap() as u64;
-        let b = results.next().unwrap() as u64;
-
-        a * b
-    */
-}
-
-fn day_twenty_three(input: &str, max: u32, iterations: u32) -> Vec<u32> {
-    let mut cups: Vec<u32> = input
+fn day_twenty_three_a(input: &str) -> usize {
+    let cups = input
         .trim()
         .chars()
-        .map(|n| (n as u8 - b'0') as u32)
-        .chain(10..=max)
-        .collect();
+        .map(|n| (n as u8 - b'0') as usize)
+        .chain(10..=9);
 
-    let mut current_cup = 0;
-    for i in 0..iterations {
-        if i % 1_000_000 == 0 && i > 0 {
-            println!("{}", i);
-        }
-        let mut pick_up = (current_cup + 1) % cups.len();
-        let cup_val = cups[current_cup % cups.len()];
-        let mut dest = cup_val - 1;
-        if dest == 0 {
-            dest = max;
-        }
-        let one = cups.remove(pick_up);
-        if pick_up < current_cup {
-            current_cup -= 1;
-        }
-        if pick_up >= cups.len() {
-            pick_up = 0;
-        }
-        let two = cups.remove(pick_up);
-        if pick_up < current_cup {
-            current_cup -= 1;
-        }
-        if pick_up >= cups.len() {
-            pick_up = 0;
-        }
-        let three = cups.remove(pick_up);
-        if pick_up < current_cup {
-            current_cup -= 1;
-        }
+    let mut cup_game = CupGame::new(cups, 9, 100);
+    cup_game.part_one()
+}
 
-        while dest == one || dest == two || dest == three {
-            if dest == 1 {
-                dest = max;
+fn day_twenty_three_b(input: &str) -> usize {
+    let cups = input
+        .trim()
+        .chars()
+        .map(|n| (n as u8 - b'0') as usize)
+        .chain(10..=1_000_000);
+
+    let mut cup_game = CupGame::new(cups, 1_000_000, 10_000_000);
+    cup_game.part_two()
+}
+
+struct CupGame {
+    cups: Vec<usize>,
+    iterations: usize,
+    current_cup: usize,
+    min: usize,
+    max: usize,
+}
+
+impl CupGame {
+    fn new<T: Iterator<Item = usize>>(values: T, length: usize, iterations: usize) -> Self {
+        let mut cups = vec![0; length];
+        let mut previous = None;
+        let mut min = usize::MAX;
+        let mut max = usize::MIN;
+        let mut first = 0;
+        for n in values {
+            if let Some(previous) = previous {
+                cups[previous - 1] = n;
             } else {
-                dest -= 1;
+                first = n;
             }
+            min = min.min(n);
+            max = max.max(n);
+            previous = Some(n);
+        }
+        if let Some(previous) = previous {
+            cups[previous - 1] = first;
         }
 
-        let find = cups
-            .iter()
-            .enumerate()
-            .find(|(_p, n)| **n == dest)
-            .unwrap()
-            .0;
+        let current_cup = first;
 
-        let find = find + 1;
-        let find = if find >= (max - 3) as usize { 0 } else { find } as usize;
-        cups.insert(find, three);
-        cups.insert(find, two);
-        cups.insert(find, one);
-
-        if find <= current_cup {
-            current_cup += 3;
+        Self {
+            cups,
+            iterations,
+            current_cup,
+            min,
+            max,
         }
-
-        current_cup = (current_cup + 1) % cups.len();
     }
 
-    cups
+    fn part_one(&mut self) -> usize {
+        self.run();
+        let mut val = self.cups[0];
+        let mut res = 0;
+        for _ in 0..8 {
+            res *= 10;
+            res += val;
+            val = self.cups[val - 1];
+        }
+
+        res
+    }
+
+    fn part_two(&mut self) -> usize {
+        self.run();
+        let a = self.cups[0];
+        let b = self.cups[a - 1];
+        a * b
+    }
+
+    fn run(&mut self) {
+        for _ in 0..self.iterations {
+            let one = self.cups[self.current_cup - 1];
+            let two = self.cups[one - 1];
+            let three = self.cups[two - 1];
+
+            let mut dest = self.current_cup;
+            while dest == one || dest == two || dest == three || dest == self.current_cup {
+                if dest == self.min {
+                    dest = self.max;
+                } else {
+                    dest -= 1;
+                }
+            }
+
+            self.cups[self.current_cup - 1] = self.cups[three - 1];
+            let temp = self.cups[dest - 1];
+            self.cups[dest - 1] = one;
+            self.cups[three - 1] = temp;
+
+            self.current_cup = self.cups[self.current_cup - 1];
+        }
+    }
 }
 
 #[test]
 fn test_day_twenty_three() {
     let run_a = |input, res| assert_eq!(day_twenty_three_a(input), res);
-    //let run_b = |input, res| assert_eq!(day_twenty_three_b(input), res);
+    let run_b = |input, res| assert_eq!(day_twenty_three_b(input), res);
 
     let i = r#"389125467"#;
 
     run_a(i, 67384529);
-    //run_b(i, 149245887792);
+    run_b(i, 149245887792);
 }
 
 fn day_twenty_four_a(input: &str) -> u64 {
