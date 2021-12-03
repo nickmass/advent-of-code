@@ -1,31 +1,43 @@
-use std::alloc::{GlobalAlloc, Layout, System};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::io::Write;
+use std::time::Duration;
 
+pub use ahash::{AHashMap as HashMap, AHashSet as HashSet};
+
+mod downloader;
+mod profiler;
 mod solutions;
 
-const DEFAULT_EVENT: u32 = 2020;
+use downloader::InputDownloader;
+use profiler::{Metrics, Profiler};
+
+const DEFAULT_EVENT: u32 = 2021;
 
 enum EventSelection {
     Specific(u32),
     All,
 }
 
-#[global_allocator]
-static GLOBAL: CountingAlloc = CountingAlloc::new();
-
 fn main() {
     let events: HashMap<_, _> = vec![
         (2019, solutions::days_2019()),
         (2020, solutions::days_2020()),
+        (2021, solutions::days_2021()),
     ]
     .into_iter()
     .collect();
 
     let mut args = std::env::args();
     let _ = args.next();
-    let event = if let Some(arg) = args.next() {
+
+    let first = args.next();
+
+    let (testing, event) = if first == Some(String::from("--submit")) {
+        (true, args.next())
+    } else {
+        (false, first)
+    };
+
+    let event = if let Some(arg) = event {
         if arg.to_lowercase() == "all" {
             EventSelection::All
         } else {
@@ -51,11 +63,19 @@ fn main() {
     let day_filter: Vec<_> = args.filter_map(|arg| arg.parse().ok()).collect();
 
     let downloader = InputDownloader::new();
+    let mut profiler = Profiler::new();
 
     match event {
         EventSelection::Specific(event) => {
             if let Some(days) = events.get(&event) {
-                run_event(&downloader, event, &days, &day_filter);
+                run_event(
+                    &downloader,
+                    &mut profiler,
+                    event,
+                    &days,
+                    &day_filter,
+                    testing,
+                );
             } else {
                 eprintln!("event '{}' not configured", event);
                 std::process::exit(1)
@@ -68,7 +88,14 @@ fn main() {
             let mut overall_duration = Duration::new(0, 0);
 
             for event in &events {
-                overall_duration += run_event(&downloader, event.0, &event.1, &day_filter);
+                overall_duration += run_event(
+                    &downloader,
+                    &mut profiler,
+                    event.0,
+                    &event.1,
+                    &day_filter,
+                    testing,
+                );
                 println!();
                 println!();
             }
@@ -98,7 +125,7 @@ impl Solution {
 
 #[macro_export]
 macro_rules! solution {
-    ($day:expr, $part_one:ident, $part_two:ident) => {
+    ($day:expr, $part_one:path, $part_two:path) => {
         Solution::new(
             $day,
             Box::new(|input| Box::new($part_one(input))),
@@ -109,9 +136,11 @@ macro_rules! solution {
 
 fn run_event(
     downloader: &InputDownloader,
+    profiler: &mut Profiler,
     event: u32,
     days: &[Solution],
     day_filter: &[u32],
+    testing: bool,
 ) -> Duration {
     println!("Advent of Code - {}", event);
     println!();
@@ -122,35 +151,42 @@ fn run_event(
         .iter()
         .filter(|d| day_filter.is_empty() || day_filter.contains(&d.day))
     {
-        total_duration += run_day(downloader, event, day)
+        total_duration += run_day(downloader, profiler, event, day, testing)
     }
     println!("Total duration{:>26}ms", total_duration.as_millis());
 
     total_duration
 }
 
-fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) -> Duration {
+fn run_day(
+    downloader: &InputDownloader,
+    profiler: &mut Profiler,
+    event: u32,
+    day: &Solution,
+    testing: bool,
+) -> Duration {
     match downloader.download_input_if_absent(event, day.day) {
         Ok(input) => {
-            let time_part_one = Instant::now();
-            GLOBAL.reset_counts();
+            profiler.start();
             let part_one = (day.part_one)(&input);
-            let (allocs, peak_mem) = GLOBAL.current_counts();
+            let part_one_metrics = profiler.stop();
             let part_one = part_one.to_string();
-            let time_part_one = time_part_one.elapsed();
 
-            print_line(day.day, 1, part_one, time_part_one, allocs, peak_mem);
+            print_line(day.day, 1, &part_one, &part_one_metrics);
 
-            let time_part_two = Instant::now();
-            GLOBAL.reset_counts();
+            profiler.start();
             let part_two = (day.part_two)(&input);
-            let (allocs, peak_mem) = GLOBAL.current_counts();
+            let part_two_metrics = profiler.stop();
             let part_two = part_two.to_string();
-            let time_part_two = time_part_two.elapsed();
 
-            print_line(day.day, 2, part_two, time_part_two, allocs, peak_mem);
+            print_line(day.day, 2, &part_two, &part_two_metrics);
 
-            time_part_one + time_part_two
+            if testing {
+                submit_day_part(downloader, event, day, 1, &part_one);
+                submit_day_part(downloader, event, day, 2, &part_two);
+            }
+
+            part_one_metrics.duration + part_two_metrics.duration
         }
         Err(error) => {
             eprintln!(
@@ -162,23 +198,59 @@ fn run_day(downloader: &InputDownloader, event: u32, day: &Solution) -> Duration
     }
 }
 
-fn print_line(
-    day: u32,
+fn submit_day_part(
+    downloader: &InputDownloader,
+    event: u32,
+    day: &Solution,
     part: u32,
-    answer: String,
-    duration: Duration,
-    allocs: u64,
-    peak_mem: usize,
+    answer: &str,
 ) {
+    print!("Submit part {}? [ycN] ", part);
+    std::io::stdout().flush().unwrap();
+    let mut buffer = String::new();
+    std::io::stdin().read_line(&mut buffer).unwrap();
+
+    let entry = buffer.trim().to_ascii_lowercase();
+    let answer = if entry == "c" {
+        print!("Enter custom submission: ");
+        std::io::stdout().flush().unwrap();
+        buffer.clear();
+        std::io::stdin().read_line(&mut buffer).unwrap();
+
+        Some(buffer.trim())
+    } else if entry == "y" {
+        Some(answer.into())
+    } else {
+        None
+    };
+
+    if let Some(answer) = answer {
+        let res = downloader.submit_answer(answer, event, day.day, part);
+
+        match res {
+            Ok(true) => println!("Correct"),
+            Ok(false) => println!("Incorrect"),
+            Err(err) => {
+                eprintln!(
+                    "unable to submit answer for '{}' day '{}' part '{}'. {:?}",
+                    event, day.day, part, err
+                );
+            }
+        }
+    }
+}
+
+fn print_line<S: AsRef<str>>(day: u32, part: u32, answer: S, metrics: &Metrics) {
+    let answer = answer.as_ref();
     if answer.len() <= 25 {
         println!(
             "{:>2}-{}:{:>25}{:>10}ms{:>10} allocations {:>10} peak memory",
             day,
             part,
             answer,
-            duration.as_millis(),
-            allocs,
-            Bytes(peak_mem)
+            metrics.duration.as_millis(),
+            metrics.allocations,
+            Bytes(metrics.peak_memory),
         );
     } else {
         println!(
@@ -186,147 +258,11 @@ fn print_line(
             day,
             part,
             "",
-            duration.as_millis(),
-            allocs,
-            Bytes(peak_mem)
+            metrics.duration.as_millis(),
+            metrics.allocations,
+            Bytes(metrics.peak_memory)
         );
         println!("{}", answer);
-    }
-}
-
-struct InputDownloader {
-    session_key: Option<String>,
-    http_client: reqwest::blocking::Client,
-}
-
-impl InputDownloader {
-    fn new() -> Self {
-        let session_key = std::fs::read_to_string("./.session-key").ok();
-        let http_client = reqwest::blocking::Client::new();
-
-        Self {
-            session_key,
-            http_client,
-        }
-    }
-
-    fn download_input_if_absent(
-        &self,
-        event: u32,
-        day: u32,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let path = std::path::PathBuf::from(format!("input/{}/day{}.txt", event, day));
-        if path.exists() {
-            let input = std::fs::read_to_string(&path)?;
-            Ok(input)
-        } else {
-            eprintln!("downloading {} day {}.", event, day);
-            let session_key = self.session_key.as_ref().ok_or(".session-key not found")?;
-            let url = format!("https://adventofcode.com/{}/day/{}/input", event, day);
-            let req = self.http_client.get(&url);
-            let req = req.header("cookie", format!("session={}", session_key));
-            let res = req.send()?;
-            let res = res.error_for_status()?;
-            let input = res.text()?;
-            std::fs::create_dir_all(&path.parent().expect("input path should have parent"))?;
-            std::fs::write(&path, &input)?;
-
-            Ok(input)
-        }
-    }
-}
-
-struct CountingAlloc {
-    allocations: AtomicU64,
-    peak_mem: AtomicUsize,
-    current_mem: AtomicUsize,
-}
-
-impl CountingAlloc {
-    const fn new() -> Self {
-        CountingAlloc {
-            allocations: AtomicU64::new(0),
-            peak_mem: AtomicUsize::new(0),
-            current_mem: AtomicUsize::new(0),
-        }
-    }
-
-    fn reset_counts(&self) {
-        self.allocations.store(0, Ordering::SeqCst);
-        self.peak_mem.store(0, Ordering::SeqCst);
-        self.current_mem.store(0, Ordering::SeqCst);
-    }
-
-    fn current_counts(&self) -> (u64, usize) {
-        let allocs = self.allocations.load(Ordering::SeqCst);
-        let peak_mem = self.peak_mem.load(Ordering::SeqCst);
-
-        (allocs, peak_mem)
-    }
-}
-
-unsafe impl GlobalAlloc for CountingAlloc {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.allocations.fetch_add(1, Ordering::Relaxed);
-        let ret = System.alloc(layout);
-
-        if !ret.is_null() {
-            let size = layout.size();
-            let current = self.current_mem.load(Ordering::Relaxed) + size;
-            let peak = self.peak_mem.load(Ordering::Relaxed).max(current);
-            self.current_mem.store(current, Ordering::Relaxed);
-            self.peak_mem.store(peak, Ordering::Relaxed);
-        }
-
-        ret
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let size = layout.size();
-        let current = self
-            .current_mem
-            .load(Ordering::Relaxed)
-            .saturating_sub(size);
-        self.current_mem.store(current, Ordering::Relaxed);
-        System.dealloc(ptr, layout)
-    }
-
-    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        self.allocations.fetch_add(1, Ordering::Relaxed);
-        let ret = System.alloc_zeroed(layout);
-
-        if !ret.is_null() {
-            let size = layout.size();
-            let current = self.current_mem.load(Ordering::Relaxed) + size;
-            let peak = self.peak_mem.load(Ordering::Relaxed).max(current);
-            self.current_mem.store(current, Ordering::Relaxed);
-            self.peak_mem.store(peak, Ordering::Relaxed);
-        }
-
-        ret
-    }
-
-    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        self.allocations.fetch_add(1, Ordering::Relaxed);
-
-        let ret = System.realloc(ptr, layout, new_size);
-
-        if !ret.is_null() {
-            let size = layout.size();
-            if new_size > size {
-                let diff = new_size - size;
-                let current = self.current_mem.load(Ordering::Relaxed) + diff;
-                let peak = self.peak_mem.load(Ordering::Relaxed).max(current);
-                self.current_mem.store(current, Ordering::Relaxed);
-                self.peak_mem.store(peak, Ordering::Relaxed);
-            } else {
-                let diff = size - new_size;
-                let current = self.current_mem.load(Ordering::Relaxed) - diff;
-                self.current_mem.store(current, Ordering::Relaxed);
-            }
-        }
-
-        ret
     }
 }
 
