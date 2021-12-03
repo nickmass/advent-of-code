@@ -1,8 +1,6 @@
-use ahash::{AHashMap as HashMap, AHashSet as HashSet};
-
 use std::str::FromStr;
 
-use crate::{solution, Solution};
+use crate::{solution, HashMap, HashSet, Solution};
 
 mod day_3;
 mod intcode;
@@ -279,7 +277,6 @@ enum Orbit {
 }
 
 fn day_six_a(input: &str) -> usize {
-    use std::convert::TryInto;
     let lines = input.as_bytes().chunks(8);
 
     let mut orbits = HashMap::new();
@@ -333,7 +330,6 @@ fn day_six_a(input: &str) -> usize {
 }
 
 fn day_six_b(input: &str) -> usize {
-    use std::convert::TryInto;
     let lines = input.as_bytes().chunks(8);
 
     let mut orbits = HashMap::new();

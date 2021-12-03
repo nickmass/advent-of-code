@@ -1,4 +1,5 @@
-use ahash::AHashMap as HashMap;
+use crate::HashMap;
+
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]

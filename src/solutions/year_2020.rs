@@ -1,8 +1,6 @@
-use ahash::{AHashMap as HashMap, AHashSet as HashSet};
-
 use std::collections::VecDeque;
 
-use crate::{solution, Solution};
+use crate::{solution, HashMap, HashSet, Solution};
 
 pub fn days() -> Vec<Solution> {
     vec![
@@ -3794,7 +3792,7 @@ impl Hand {
         if self.len() == 50 {
             panic!("overflowed hand")
         }
-        let idx = (self.cursor + self.len) & 0x3F;
+        let idx = (self.cursor.wrapping_add(self.len)) & 0x3F;
         self.cards[idx as usize] = card;
         self.len += 1;
     }
