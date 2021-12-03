@@ -1,68 +1,116 @@
-use perf_event::{events, Builder, Counter, Group};
-
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 #[global_allocator]
 static GLOBAL: CountingAlloc = CountingAlloc::new();
 
-#[derive(Debug)]
-pub struct Profiler {
-    perf_group: Group,
-    cycle_counter: Counter,
-    instruction_counter: Counter,
-    clock_counter: Counter,
-}
+#[cfg(not(target_os = "linux"))]
+pub use fallback::Profiler;
+#[cfg(target_os = "linux")]
+pub use linux::Profiler;
 
-impl Profiler {
-    pub fn new() -> Self {
-        let mut perf_group = Group::new().unwrap();
-        let cycle_counter = Builder::new()
-            .group(&mut perf_group)
-            .kind(events::Hardware::CPU_CYCLES)
-            .build()
-            .unwrap();
-        let instruction_counter = Builder::new()
-            .group(&mut perf_group)
-            .kind(events::Hardware::INSTRUCTIONS)
-            .build()
-            .unwrap();
-        let clock_counter = Builder::new()
-            .group(&mut perf_group)
-            .kind(events::Software::TASK_CLOCK)
-            .build()
-            .unwrap();
+#[cfg(target_os = "linux")]
+mod linux {
+    use perf_event::{events, Builder, Counter, Group};
 
-        Self {
-            perf_group,
-            cycle_counter,
-            instruction_counter,
-            clock_counter,
+    use super::{Metrics, GLOBAL};
+
+    #[derive(Debug)]
+    pub struct Profiler {
+        perf_group: Group,
+        cycle_counter: Counter,
+        instruction_counter: Counter,
+        clock_counter: Counter,
+    }
+
+    impl Profiler {
+        pub fn new() -> Self {
+            let mut perf_group = Group::new().unwrap();
+            let cycle_counter = Builder::new()
+                .group(&mut perf_group)
+                .kind(events::Hardware::CPU_CYCLES)
+                .build()
+                .unwrap();
+            let instruction_counter = Builder::new()
+                .group(&mut perf_group)
+                .kind(events::Hardware::INSTRUCTIONS)
+                .build()
+                .unwrap();
+            let clock_counter = Builder::new()
+                .group(&mut perf_group)
+                .kind(events::Software::TASK_CLOCK)
+                .build()
+                .unwrap();
+
+            Self {
+                perf_group,
+                cycle_counter,
+                instruction_counter,
+                clock_counter,
+            }
+        }
+
+        pub fn start(&mut self) {
+            self.perf_group.reset().unwrap();
+            GLOBAL.reset_counts();
+            self.perf_group.enable().unwrap();
+        }
+
+        pub fn stop(&mut self) -> Metrics {
+            self.perf_group.disable().unwrap();
+            let (allocations, peak_memory) = GLOBAL.current_counts();
+            let counts = self.perf_group.read().unwrap();
+            let cycles = counts[&self.cycle_counter];
+            let instructions = counts[&self.instruction_counter];
+
+            let clock = counts[&self.clock_counter];
+            let duration = std::time::Duration::from_nanos(clock);
+
+            Metrics {
+                instructions,
+                cycles,
+                duration,
+                allocations,
+                peak_memory,
+            }
         }
     }
+}
 
-    pub fn start(&mut self) {
-        self.perf_group.reset().unwrap();
-        GLOBAL.reset_counts();
-        self.perf_group.enable().unwrap();
+#[cfg(not(target_os = "linux"))]
+mod fallback {
+    use super::{Metrics, GLOBAL};
+
+    use std::time::Instant;
+
+    #[derive(Debug)]
+    pub struct Profiler {
+        start_time: Instant,
     }
 
-    pub fn stop(&mut self) -> Metrics {
-        self.perf_group.disable().unwrap();
-        let (allocations, peak_memory) = GLOBAL.current_counts();
-        let counts = self.perf_group.read().unwrap();
-        let cycles = counts[&self.cycle_counter];
-        let instructions = counts[&self.instruction_counter];
+    impl Profiler {
+        pub fn new() -> Self {
+            Self {
+                start_time: Instant::now(),
+            }
+        }
 
-        let clock = counts[&self.clock_counter];
-        let duration = std::time::Duration::from_nanos(clock);
+        pub fn start(&mut self) {
+            GLOBAL.reset_counts();
+            self.start_time = Instant::now();
+        }
 
-        Metrics {
-            instructions,
-            cycles,
-            duration,
-            allocations,
-            peak_memory,
+        pub fn stop(&mut self) -> Metrics {
+            let duration = self.start_time.elapsed();
+            let (allocations, peak_memory) = GLOBAL.current_counts();
+
+            Metrics {
+                duration,
+                allocations,
+                peak_memory,
+                instructions: 0,
+                cycles: 0,
+            }
         }
     }
 }
