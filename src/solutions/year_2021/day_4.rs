@@ -82,14 +82,11 @@ impl Board {
     }
 
     fn score(&self) -> u64 {
-        let mut sum = 0;
-        for y in 0..5 {
-            for x in 0..5 {
-                if let Some(Cell::Open(cell)) = self.get(x, y) {
-                    sum += *cell
-                }
-            }
-        }
+        let sum = self
+            .cells
+            .iter()
+            .map(|c| if let Cell::Open(cell) = c { *cell } else { 0 })
+            .sum::<u64>();
 
         sum * self.winner.unwrap_or_default()
     }
@@ -98,20 +95,15 @@ impl Board {
 pub fn part_one(input: &str) -> u64 {
     let mut sections = input.trim().split("\n\n");
 
-    let mut draws = sections
+    let draws = sections
         .next()
         .unwrap()
         .split(',')
         .filter_map(|s| s.parse::<u64>().ok());
 
-    let mut boards = Vec::new();
-    for section in sections {
-        boards.push(Board::new(section));
-    }
+    let mut boards: Vec<_> = sections.map(Board::new).collect();
 
-    loop {
-        let draw = draws.next().expect("out of draws");
-
+    for draw in draws {
         for board in boards.iter_mut() {
             board.mark(draw);
 
@@ -120,25 +112,22 @@ pub fn part_one(input: &str) -> u64 {
             }
         }
     }
+
+    panic!("ran out of draws")
 }
 
 pub fn part_two(input: &str) -> u64 {
     let mut sections = input.trim().split("\n\n");
 
-    let mut draws = sections
+    let draws = sections
         .next()
         .unwrap()
         .split(',')
         .filter_map(|s| s.parse::<u64>().ok());
 
-    let mut boards = Vec::new();
-    for section in sections {
-        boards.push(Board::new(section));
-    }
+    let mut boards: Vec<_> = sections.map(Board::new).collect();
 
-    loop {
-        let draw = draws.next().expect("out of draws");
-
+    for draw in draws {
         for board in boards.iter_mut() {
             board.mark(draw);
         }
@@ -149,6 +138,8 @@ pub fn part_two(input: &str) -> u64 {
 
         boards.retain(|b| !b.winner());
     }
+
+    panic!("ran out of draws")
 }
 
 #[test]

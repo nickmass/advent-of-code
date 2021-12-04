@@ -18,7 +18,7 @@ enum EventSelection {
 }
 
 fn main() {
-    let events: HashMap<_, _> = vec![
+    let events: HashMap<_, _> = [
         (2019, solutions::days_2019()),
         (2020, solutions::days_2020()),
         (2021, solutions::days_2021()),
@@ -26,18 +26,28 @@ fn main() {
     .into_iter()
     .collect();
 
-    let mut args = std::env::args();
-    let _ = args.next();
+    let mut args: Vec<_> = std::env::args().skip(1).collect();
 
-    let first = args.next();
+    let mut submission = false;
+    let mut details = false;
 
-    let (testing, event) = if first == Some(String::from("--submit")) {
-        (true, args.next())
-    } else {
-        (false, first)
-    };
+    for arg in args.iter() {
+        match arg.as_str() {
+            "--submit" | "-s" => submission = true,
+            "--details" | "-d" => details = true,
+            "--help" | "-h" => {
+                println!("--submit\t-s\t\tAsk to submit answer after each solution");
+                println!("--details\t-d\t\tDisplay additional performance metrics");
+                println!("--help\t\t-h\t\tDisplay this message");
+                return;
+            }
+            _ => (),
+        }
+    }
 
-    let event = if let Some(arg) = event {
+    args.retain(|arg| !arg.starts_with("-"));
+
+    let event = if let Some(arg) = args.get(0) {
         if arg.to_lowercase() == "all" {
             EventSelection::All
         } else {
@@ -60,22 +70,26 @@ fn main() {
         EventSelection::Specific(DEFAULT_EVENT)
     };
 
-    let day_filter: Vec<_> = args.filter_map(|arg| arg.parse().ok()).collect();
+    let day_filter: Vec<_> = args
+        .into_iter()
+        .skip(1)
+        .filter_map(|arg| arg.parse().ok())
+        .collect();
 
     let downloader = InputDownloader::new();
-    let mut profiler = Profiler::new();
+    let profiler = Profiler::new();
+
+    let mut context = Context {
+        downloader,
+        profiler,
+        details,
+        submission,
+    };
 
     match event {
         EventSelection::Specific(event) => {
             if let Some(days) = events.get(&event) {
-                run_event(
-                    &downloader,
-                    &mut profiler,
-                    event,
-                    &days,
-                    &day_filter,
-                    testing,
-                );
+                run_event(&mut context, event, &days, &day_filter);
             } else {
                 eprintln!("event '{}' not configured", event);
                 std::process::exit(1)
@@ -88,21 +102,21 @@ fn main() {
             let mut overall_duration = Duration::new(0, 0);
 
             for event in &events {
-                overall_duration += run_event(
-                    &downloader,
-                    &mut profiler,
-                    event.0,
-                    &event.1,
-                    &day_filter,
-                    testing,
-                );
+                overall_duration += run_event(&mut context, event.0, &event.1, &day_filter);
                 println!();
                 println!();
             }
 
-            println!("Overall duration{:>24}ms", overall_duration.as_millis())
+            println!("Overall duration{:>26}", profiler::Time(overall_duration))
         }
     }
+}
+
+struct Context {
+    downloader: InputDownloader,
+    profiler: Profiler,
+    details: bool,
+    submission: bool,
 }
 
 type SolutionFunc = Box<dyn Fn(&str) -> Box<dyn std::fmt::Display>>;
@@ -134,14 +148,7 @@ macro_rules! solution {
     };
 }
 
-fn run_event(
-    downloader: &InputDownloader,
-    profiler: &mut Profiler,
-    event: u32,
-    days: &[Solution],
-    day_filter: &[u32],
-    testing: bool,
-) -> Duration {
+fn run_event(ctx: &mut Context, event: u32, days: &[Solution], day_filter: &[u32]) -> Duration {
     println!("Advent of Code - {}", event);
     println!();
 
@@ -151,39 +158,33 @@ fn run_event(
         .iter()
         .filter(|d| day_filter.is_empty() || day_filter.contains(&d.day))
     {
-        total_duration += run_day(downloader, profiler, event, day, testing)
+        total_duration += run_day(ctx, event, day)
     }
-    println!("Total duration{:>26}ms", total_duration.as_millis());
+    println!("Total duration{:>28}", profiler::Time(total_duration));
 
     total_duration
 }
 
-fn run_day(
-    downloader: &InputDownloader,
-    profiler: &mut Profiler,
-    event: u32,
-    day: &Solution,
-    testing: bool,
-) -> Duration {
-    match downloader.download_input_if_absent(event, day.day) {
+fn run_day(ctx: &mut Context, event: u32, day: &Solution) -> Duration {
+    match ctx.downloader.download_input_if_absent(event, day.day) {
         Ok(input) => {
-            profiler.start();
+            ctx.profiler.start();
             let part_one = (day.part_one)(&input);
-            let part_one_metrics = profiler.stop();
+            let part_one_metrics = ctx.profiler.stop();
             let part_one = part_one.to_string();
 
-            print_line(day.day, 1, &part_one, &part_one_metrics);
+            print_line(ctx, day.day, 1, &part_one, &part_one_metrics);
 
-            profiler.start();
+            ctx.profiler.start();
             let part_two = (day.part_two)(&input);
-            let part_two_metrics = profiler.stop();
+            let part_two_metrics = ctx.profiler.stop();
             let part_two = part_two.to_string();
 
-            print_line(day.day, 2, &part_two, &part_two_metrics);
+            print_line(ctx, day.day, 2, &part_two, &part_two_metrics);
 
-            if testing {
-                submit_day_part(downloader, event, day, 1, &part_one);
-                submit_day_part(downloader, event, day, 2, &part_two);
+            if ctx.submission {
+                submit_day_part(ctx, event, day, 1, &part_one);
+                submit_day_part(ctx, event, day, 2, &part_two);
             }
 
             part_one_metrics.duration + part_two_metrics.duration
@@ -198,13 +199,7 @@ fn run_day(
     }
 }
 
-fn submit_day_part(
-    downloader: &InputDownloader,
-    event: u32,
-    day: &Solution,
-    part: u32,
-    answer: &str,
-) {
+fn submit_day_part(ctx: &Context, event: u32, day: &Solution, part: u32, answer: &str) {
     print!("Submit part {}? [ycN] ", part);
     std::io::stdout().flush().unwrap();
     let mut buffer = String::new();
@@ -225,7 +220,7 @@ fn submit_day_part(
     };
 
     if let Some(answer) = answer {
-        let res = downloader.submit_answer(answer, event, day.day, part);
+        let res = ctx.downloader.submit_answer(answer, event, day.day, part);
 
         match res {
             Ok(true) => println!("Correct"),
@@ -240,54 +235,24 @@ fn submit_day_part(
     }
 }
 
-fn print_line<S: AsRef<str>>(day: u32, part: u32, answer: S, metrics: &Metrics) {
+fn print_line<S: AsRef<str>>(ctx: &Context, day: u32, part: u32, answer: S, metrics: &Metrics) {
     let answer = answer.as_ref();
     if answer.len() <= 25 {
         println!(
-            "{:>2}-{}:{:>25}{:>10}ms{:>10} allocations {:>10} peak memory",
+            "{:>2}-{}:{:>25}{}",
             day,
             part,
             answer,
-            metrics.duration.as_millis(),
-            metrics.allocations,
-            Bytes(metrics.peak_memory),
+            metrics.display(ctx.details)
         );
     } else {
         println!(
-            "{:>2}-{}:{:>25}{:>10}ms{:>10} allocations {:>10} peak memory",
+            "{:>2}-{}:{:>25}{}",
             day,
             part,
             "",
-            metrics.duration.as_millis(),
-            metrics.allocations,
-            Bytes(metrics.peak_memory)
+            metrics.display(ctx.details)
         );
         println!("{}", answer);
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Bytes(usize);
-
-impl std::fmt::Display for Bytes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut size = self.0 as f64;
-        if size < 512.0 {
-            let s = format!("{}b ", size);
-            return f.pad(s.as_str());
-        }
-        size /= 1024.0;
-        if size < 512.0 {
-            let s = format!("{:.1}kb", size);
-            return f.pad(s.as_str());
-        }
-        size /= 1024.0;
-        if size < 512.0 {
-            let s = format!("{:.1}mb", size);
-            return f.pad(s.as_str());
-        }
-        size /= 1024.0;
-        let s = format!("{:.1}gb", size);
-        return f.pad(s.as_str());
     }
 }
