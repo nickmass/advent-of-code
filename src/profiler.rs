@@ -1,5 +1,6 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::time::Duration;
 
 #[global_allocator]
 static GLOBAL: CountingAlloc = CountingAlloc::new();
@@ -13,7 +14,7 @@ pub use linux::Profiler;
 mod linux {
     use perf_event::{events, Builder, Counter, Group};
 
-    use super::{Metrics, GLOBAL};
+    use super::{Duration, Metrics, GLOBAL};
 
     #[derive(Debug)]
     pub struct Profiler {
@@ -64,7 +65,7 @@ mod linux {
             let instructions = counts[&self.instruction_counter];
 
             let clock = counts[&self.clock_counter];
-            let duration = std::time::Duration::from_nanos(clock);
+            let duration = Duration::from_nanos(clock);
 
             Metrics {
                 instructions,
@@ -122,6 +123,81 @@ pub struct Metrics {
     pub duration: std::time::Duration,
     pub allocations: u64,
     pub peak_memory: usize,
+}
+
+impl Metrics {
+    pub fn display(&self, detailed: bool) -> MetricsDisplay {
+        MetricsDisplay(detailed, &self)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct MetricsDisplay<'a>(bool, &'a Metrics);
+
+impl<'a> std::fmt::Display for MetricsDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 {
+            write!(
+                f,
+                "{:>12}{:>10} allocs.{:>10} mem.{:>15} cyc.{:>15} instr.",
+                Time(self.1.duration),
+                self.1.allocations,
+                Bytes(self.1.peak_memory),
+                self.1.cycles,
+                self.1.instructions
+            )
+        } else {
+            write!(
+                f,
+                "{:>12}{:>10} allocations{:>10} peak memory",
+                Time(self.1.duration),
+                self.1.allocations,
+                Bytes(self.1.peak_memory)
+            )
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Time(pub Duration);
+
+impl std::fmt::Display for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let micros = self.0.as_micros();
+        let s = if micros > 2000 {
+            format!("{}ms", micros / 1000)
+        } else {
+            format!("{}us", micros)
+        };
+
+        f.pad(s.as_str())
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Bytes(pub usize);
+
+impl std::fmt::Display for Bytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut size = self.0 as f64;
+        if size < 512.0 {
+            let s = format!("{}b ", size);
+            return f.pad(s.as_str());
+        }
+        size /= 1024.0;
+        if size < 512.0 {
+            let s = format!("{:.1}kb", size);
+            return f.pad(s.as_str());
+        }
+        size /= 1024.0;
+        if size < 512.0 {
+            let s = format!("{:.1}mb", size);
+            return f.pad(s.as_str());
+        }
+        size /= 1024.0;
+        let s = format!("{:.1}gb", size);
+        return f.pad(s.as_str());
+    }
 }
 
 struct CountingAlloc {
