@@ -1,3 +1,84 @@
+use std::str::FromStr;
+
+pub fn part_one(input: &str) -> i32 {
+    let mut lines = input.trim().split('\n');
+
+    let first_line = lines
+        .next()
+        .unwrap()
+        .split(',')
+        .map(Movement::from_str)
+        .filter_map(Result::ok);
+    let second_line = lines
+        .next()
+        .unwrap()
+        .split(',')
+        .map(Movement::from_str)
+        .filter_map(Result::ok);
+
+    let first_segments = LineIter::new(first_line);
+    let second_segments: Vec<_> = LineIter::new(second_line).collect();
+
+    let intersections = first_segments.filter_map(|(_, f)| {
+        second_segments
+            .iter()
+            .filter_map(|(_, s)| f.crosses(s))
+            .next()
+    });
+
+    intersections.map(|p| p.distance()).min().unwrap_or(0)
+}
+
+pub fn part_two(input: &str) -> i32 {
+    let mut lines = input.trim().split('\n');
+
+    let first_line = lines
+        .next()
+        .unwrap()
+        .split(',')
+        .map(Movement::from_str)
+        .filter_map(Result::ok);
+    let second_line = lines
+        .next()
+        .unwrap()
+        .split(',')
+        .map(Movement::from_str)
+        .filter_map(Result::ok);
+
+    let first_segments = LineIter::new(first_line);
+    let second_segments: Vec<_> = LineIter::new(second_line)
+        .scan(0, |distance, (p, l)| {
+            *distance += l.length();
+            Some((*distance, p, l))
+        })
+        .collect();
+
+    let mut min_distance = std::i32::MAX;
+
+    let mut fl_distance = 0;
+    for (fl_start, fl) in first_segments {
+        for (sl_distance, sl_start, sl) in &second_segments {
+            let total_distance = sl_distance + fl_distance;
+
+            if let Some(cross) = fl.crosses(sl) {
+                let distance = total_distance + fl_start.distance_to(&cross)
+                    - (sl.length() - sl_start.distance_to(&cross));
+                if distance < min_distance {
+                    min_distance = distance;
+                    break;
+                }
+            }
+
+            if total_distance > min_distance {
+                break;
+            }
+        }
+        fl_distance += fl.length();
+    }
+
+    min_distance
+}
+
 #[derive(Debug, Clone)]
 pub enum Line {
     EastWest(Segment),
