@@ -5,7 +5,9 @@ pub use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
 mod downloader;
 mod profiler;
-mod solutions;
+pub mod solutions;
+
+pub use solutions::{Solution, SolutionFunc};
 
 use downloader::InputDownloader;
 use profiler::{Metrics, Profiler};
@@ -117,35 +119,6 @@ struct Context {
     profiler: Profiler,
     details: bool,
     submission: bool,
-}
-
-type SolutionFunc = Box<dyn Fn(&str) -> Box<dyn std::fmt::Display>>;
-
-pub struct Solution {
-    day: u32,
-    part_one: SolutionFunc,
-    part_two: SolutionFunc,
-}
-
-impl Solution {
-    pub fn new(day: u32, part_one: SolutionFunc, part_two: SolutionFunc) -> Self {
-        Self {
-            day,
-            part_one,
-            part_two,
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! solution {
-    ($day:expr, $part_one:path, $part_two:path) => {
-        Solution::new(
-            $day,
-            Box::new(|input| Box::new($part_one(input))),
-            Box::new(|input| Box::new($part_two(input))),
-        )
-    };
 }
 
 fn run_event(ctx: &mut Context, event: u32, days: &[Solution], day_filter: &[u32]) -> Duration {

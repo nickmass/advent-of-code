@@ -1,12 +1,21 @@
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Cell {
     Marked,
-    Open(u64),
+    Open(u8),
+}
+
+impl From<Cell> for u64 {
+    fn from(c: Cell) -> Self {
+        match c {
+            Cell::Marked => 0,
+            Cell::Open(n) => n as u64,
+        }
+    }
 }
 
 struct Board {
-    cells: Vec<Cell>,
-    winner: Option<u64>,
+    cells: [Cell; 25],
+    winner: Option<u8>,
 }
 
 impl Board {
@@ -16,8 +25,10 @@ impl Board {
             .filter_map(|n| n.parse().ok())
             .map(Cell::Open);
 
-        let mut cells = Vec::with_capacity(25);
-        cells.extend(nums);
+        let mut cells = [Cell::Marked; 25];
+        for (cell, num) in cells.iter_mut().zip(nums) {
+            *cell = num;
+        }
 
         Self {
             cells,
@@ -25,11 +36,7 @@ impl Board {
         }
     }
 
-    fn mark(&mut self, value: u64) {
-        if self.winner() {
-            return;
-        }
-
+    fn mark(&mut self, value: u8) {
         let mut found = None;
 
         'outer: for y in 0..5 {
@@ -82,13 +89,9 @@ impl Board {
     }
 
     fn score(&self) -> u64 {
-        let sum = self
-            .cells
-            .iter()
-            .map(|c| if let Cell::Open(cell) = c { *cell } else { 0 })
-            .sum::<u64>();
+        let sum = self.cells.iter().copied().map(u64::from).sum::<u64>();
 
-        sum * self.winner.unwrap_or_default()
+        sum * self.winner.unwrap_or_default() as u64
     }
 }
 
@@ -99,7 +102,7 @@ pub fn part_one(input: &str) -> u64 {
         .next()
         .unwrap()
         .split(',')
-        .filter_map(|s| s.parse::<u64>().ok());
+        .filter_map(|s| s.parse::<u8>().ok());
 
     let mut boards: Vec<_> = sections.map(Board::new).collect();
 
@@ -123,7 +126,7 @@ pub fn part_two(input: &str) -> u64 {
         .next()
         .unwrap()
         .split(',')
-        .filter_map(|s| s.parse::<u64>().ok());
+        .filter_map(|s| s.parse::<u8>().ok());
 
     let mut boards: Vec<_> = sections.map(Board::new).collect();
 
