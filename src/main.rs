@@ -1,13 +1,12 @@
+use ahash::AHashMap as HashMap;
+
 use std::io::Write;
 use std::time::Duration;
 
-pub use ahash::{AHashMap as HashMap, AHashSet as HashSet};
+use advent::solutions::{self, Solution};
 
 mod downloader;
 mod profiler;
-pub mod solutions;
-
-pub use solutions::{Solution, SolutionFunc};
 
 use downloader::InputDownloader;
 use profiler::{Metrics, Profiler};
