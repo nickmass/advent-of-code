@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use advent_of_code::solutions::{self, Solution};
+use advent::solutions::{self, Solution};
 
 pub fn all_years(c: &mut Criterion) {
     do_bench(c, 2019, solutions::days_2019());
