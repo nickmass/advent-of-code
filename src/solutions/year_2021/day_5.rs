@@ -1,6 +1,129 @@
-use crate::HashSet;
+pub fn part_one(input: &str) -> usize {
+    let text = input.trim().lines();
 
-// TODO - Delete all this
+    let mut max_x = 0;
+    let mut max_y = 0;
+    let mut lines = Vec::new();
+    for line in text {
+        if let Some((from, to)) = line.split_once(" -> ") {
+            let start = from
+                .split_once(",")
+                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
+            let end = to
+                .split_once(",")
+                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
+
+            if let Some(((x0, y0), (x1, y1))) = start.zip(end) {
+                max_x = x0.max(x1).max(max_x);
+                max_y = y0.max(y1).max(max_y);
+                if x0 == x1 {
+                    lines.push(Segment::Vertical {
+                        column: x0,
+                        start: y0.min(y1),
+                        end: y0.max(y1),
+                    });
+                } else if y0 == y1 {
+                    lines.push(Segment::Horizontal {
+                        row: y0,
+                        start: x0.min(x1),
+                        end: x0.max(x1),
+                    });
+                }
+            }
+        }
+    }
+
+    solver(lines.into_iter(), max_x as usize + 1, max_y as usize + 1)
+}
+
+pub fn part_two(input: &str) -> usize {
+    let text = input.trim().lines();
+
+    let mut max_x = 0;
+    let mut max_y = 0;
+    let mut lines = Vec::new();
+    for line in text {
+        if let Some((from, to)) = line.split_once(" -> ") {
+            let start = from
+                .split_once(",")
+                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
+            let end = to
+                .split_once(",")
+                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
+
+            if let Some(((x0, y0), (x1, y1))) = start.zip(end) {
+                max_x = x0.max(x1).max(max_x);
+                max_y = y0.max(y1).max(max_y);
+                if x0 == x1 {
+                    lines.push(Segment::Vertical {
+                        column: x0,
+                        start: y0.min(y1),
+                        end: y0.max(y1),
+                    });
+                } else if y0 == y1 {
+                    lines.push(Segment::Horizontal {
+                        row: y0,
+                        start: x0.min(x1),
+                        end: x0.max(x1),
+                    });
+                } else {
+                    if x1 > x0 {
+                        lines.push(Segment::Diagonal { x0, y0, x1, y1 });
+                    } else {
+                        lines.push(Segment::Diagonal {
+                            x0: x1,
+                            y0: y1,
+                            x1: x0,
+                            y1: y0,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    solver(lines.into_iter(), max_x as usize + 1, max_y as usize + 1)
+}
+
+fn solver<I: Iterator<Item = Segment>>(iter: I, width: usize, height: usize) -> usize {
+    let mut map = CellMap::new(width, height);
+
+    let mut count = 0;
+    for line in iter {
+        for point in line.iter() {
+            if let Some(cell) = map.increment(point) {
+                if cell == 2 {
+                    count += 1;
+                }
+            }
+        }
+    }
+
+    count
+}
+
+struct CellMap {
+    cells: Vec<u8>,
+    stride: usize,
+}
+
+impl CellMap {
+    fn new(width: usize, height: usize) -> Self {
+        let cells = vec![0; width * height];
+        let stride = width;
+
+        Self { cells, stride }
+    }
+
+    fn increment(&mut self, (x, y): (i64, i64)) -> Option<u8> {
+        let x = x as usize;
+        let y = y as usize;
+        let idx = (y * self.stride) + x;
+        let mut cell = self.cells.get_mut(idx);
+        cell.as_mut().map(|c| **c = c.saturating_add(1));
+        cell.copied()
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 enum Segment {
@@ -10,178 +133,6 @@ enum Segment {
 }
 
 impl Segment {
-    fn length(&self) -> i64 {
-        match self {
-            Segment::Horizontal { start, end, .. } => (end - start).abs(),
-            Segment::Vertical { start, end, .. } => (end - start).abs(),
-            Segment::Diagonal { x0, x1, .. } => (x1 - x0).abs(),
-        }
-    }
-
-    fn intersect(&self, other: &Self, matches: &mut HashSet<(i64, i64)>) {
-        use Segment::*;
-        match (*self, *other) {
-            (Horizontal { row: a_r, .. }, Horizontal { row: b_r, .. }) if a_r == b_r => {
-                if self.length() < other.length() {
-                    for a in self.iter() {
-                        if other.contains(a) {
-                            matches.insert(a);
-                        }
-                    }
-                } else {
-                    for a in other.iter() {
-                        if self.contains(a) {
-                            matches.insert(a);
-                        }
-                    }
-                }
-            }
-            (Vertical { column: a_c, .. }, Vertical { column: b_c, .. }) if a_c == b_c => {
-                if self.length() < other.length() {
-                    for a in self.iter() {
-                        if other.contains(a) {
-                            matches.insert(a);
-                        }
-                    }
-                } else {
-                    for a in other.iter() {
-                        if self.contains(a) {
-                            matches.insert(a);
-                        }
-                    }
-                }
-            }
-            (
-                Horizontal {
-                    row,
-                    start: h_start,
-                    end: h_end,
-                },
-                Vertical {
-                    column,
-                    start: v_start,
-                    end: v_end,
-                },
-            )
-            | (
-                Vertical {
-                    column,
-                    start: v_start,
-                    end: v_end,
-                },
-                Horizontal {
-                    row,
-                    start: h_start,
-                    end: h_end,
-                },
-            ) => {
-                if column >= h_start && column <= h_end && row >= v_start && row <= v_end {
-                    matches.insert((column, row));
-                }
-            }
-            (Diagonal { y0, y1, x0, x1 }, Horizontal { row, start, end })
-            | (Horizontal { row, start, end }, Diagonal { y0, y1, x0, x1 }) => {
-                if ((y1 > y0) && (row >= y0 && row <= y1))
-                    || ((y0 > y1) && (row >= y1 && row <= y0))
-                {
-                    let x = if y1 > y0 {
-                        (row - y0) + x0
-                    } else {
-                        x1 - (row - y1)
-                    };
-
-                    if x >= start && x <= end {
-                        matches.insert((x, row));
-                    }
-                }
-            }
-            (Diagonal { x0, x1, y0, y1 }, Vertical { column, start, end })
-            | (Vertical { column, start, end }, Diagonal { x0, x1, y0, y1 }) => {
-                if column >= x0 && column <= x1 {
-                    let y = if y1 > y0 {
-                        (column - x0) + y0
-                    } else {
-                        y0 - (column - x0)
-                    };
-
-                    if y >= start && y <= end {
-                        matches.insert((column, y));
-                    }
-                }
-            }
-            (
-                Diagonal {
-                    x0: ax0,
-                    y0: ay0,
-                    x1: ax1,
-                    y1: ay1,
-                },
-                Diagonal {
-                    x0: bx0,
-                    y0: by0,
-                    x1: bx1,
-                    y1: by1,
-                },
-            ) => match (ay0 > ay1, by0 > by1) {
-                (true, true) | (false, false) => {
-                    if (ay1 - by1).abs() == (ax1 - bx1).abs()
-                        && (ax0 - bx0).abs() == (ay0 - by0).abs()
-                    {
-                        for a in self.iter() {
-                            if other.contains(a) {
-                                matches.insert(a);
-                            }
-                        }
-                    }
-                }
-                (true, false) | (false, true) => {
-                    if self.length() < other.length() {
-                        for a in self.iter() {
-                            if other.contains(a) {
-                                matches.insert(a);
-                                break;
-                            }
-                        }
-                    } else {
-                        for a in other.iter() {
-                            if self.contains(a) {
-                                matches.insert(a);
-                                break;
-                            }
-                        }
-                    }
-                }
-            },
-            _ => (),
-        }
-    }
-
-    fn contains(&self, (x, y): (i64, i64)) -> bool {
-        match *self {
-            Segment::Horizontal { row, start, end } => y == row && x >= start && x <= end,
-            Segment::Vertical { column, start, end } => x == column && y >= start && y <= end,
-            Segment::Diagonal { x0, y0, x1, y1 } => {
-                if y1 > y0 {
-                    if x > x1 || y > y1 {
-                        false
-                    } else if x < x0 || y < y0 {
-                        false
-                    } else {
-                        x1 - x == y1 - y
-                    }
-                } else {
-                    if x > x1 || y > y0 {
-                        false
-                    } else if x < x0 || y < y1 {
-                        false
-                    } else {
-                        x1 - x == y - y1
-                    }
-                }
-            }
-        }
-    }
-
     fn iter(&self) -> SegmentIter {
         SegmentIter {
             segment: *self,
@@ -236,107 +187,6 @@ impl Iterator for SegmentIter {
             }
         }
     }
-}
-
-pub fn part_one(input: &str) -> usize {
-    let text = input.trim().lines();
-
-    let mut max_x = 0;
-    let mut max_y = 0;
-    let mut lines = Vec::new();
-    for line in text {
-        if let Some((from, to)) = line.split_once(" -> ") {
-            let start = from
-                .split_once(",")
-                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
-            let end = to
-                .split_once(",")
-                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
-
-            if let Some(((x0, y0), (x1, y1))) = start.zip(end) {
-                max_x = x0.max(x1).max(max_x);
-                max_y = y0.max(y1).max(max_y);
-                if x0 == x1 {
-                    lines.push(Segment::Vertical {
-                        column: x0,
-                        start: y0.min(y1),
-                        end: y0.max(y1),
-                    });
-                } else if y0 == y1 {
-                    lines.push(Segment::Horizontal {
-                        row: y0,
-                        start: x0.min(x1),
-                        end: x0.max(x1),
-                    });
-                }
-            }
-        }
-    }
-
-    let mut matches = HashSet::new();
-    for (idx, a) in lines.iter().enumerate() {
-        for b in lines[idx + 1..].iter() {
-            a.intersect(b, &mut matches);
-        }
-    }
-
-    matches.len()
-}
-
-pub fn part_two(input: &str) -> usize {
-    let text = input.trim().lines();
-
-    let mut max_x = 0;
-    let mut max_y = 0;
-    let mut lines = Vec::new();
-    for line in text {
-        if let Some((from, to)) = line.split_once(" -> ") {
-            let start = from
-                .split_once(",")
-                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
-            let end = to
-                .split_once(",")
-                .and_then(|(a, b)| a.parse::<i64>().ok().zip(b.parse::<i64>().ok()));
-
-            if let Some(((x0, y0), (x1, y1))) = start.zip(end) {
-                max_x = x0.max(x1).max(max_x);
-                max_y = y0.max(y1).max(max_y);
-                if x0 == x1 {
-                    lines.push(Segment::Vertical {
-                        column: x0,
-                        start: y0.min(y1),
-                        end: y0.max(y1),
-                    });
-                } else if y0 == y1 {
-                    lines.push(Segment::Horizontal {
-                        row: y0,
-                        start: x0.min(x1),
-                        end: x0.max(x1),
-                    });
-                } else {
-                    if x1 > x0 {
-                        lines.push(Segment::Diagonal { x0, y0, x1, y1 });
-                    } else {
-                        lines.push(Segment::Diagonal {
-                            x0: x1,
-                            y0: y1,
-                            x1: x0,
-                            y1: y0,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    let mut matches = HashSet::new();
-    for (idx, a) in lines.iter().enumerate() {
-        for b in lines[idx + 1..].iter() {
-            a.intersect(b, &mut matches);
-        }
-    }
-
-    matches.len()
 }
 
 #[test]
