@@ -27,8 +27,7 @@ pub fn part_two(input: &str) -> usize {
             buffer.extend(sample.split(' '));
             buffer.sort_by_key(|s| s.len());
 
-            let solver = Solver::<Unsolved>::new(&buffer);
-            let n = solver.solve().result(result);
+            let n = solve(&buffer, result);
 
             sum += n;
         }
@@ -37,248 +36,86 @@ pub fn part_two(input: &str) -> usize {
     sum
 }
 
-trait Solved {}
+fn solve(samples: &[&str], result: &str) -> usize {
+    let num_1 = samples[0];
+    let num_7 = samples[1];
+    let num_4 = samples[2];
+    let num_8 = samples[9];
 
-struct Solver<'s, T: Solved> {
-    samples: &'s [&'s str],
-    solved: T,
-}
-
-struct Unsolved;
-
-struct OneFourSevenEightNine<'s> {
-    num_1: &'s str,
-    num_4: &'s str,
-    num_7: &'s str,
-    num_8: &'s str,
-    num_9: &'s str,
-
-    segment_4: char,
-}
-
-struct Two<'s> {
-    num_1: &'s str,
-    num_2: &'s str,
-    num_4: &'s str,
-    num_7: &'s str,
-    num_8: &'s str,
-    num_9: &'s str,
-
-    segment_2: char,
-    segment_4: char,
-}
-
-struct Six<'s> {
-    num_1: &'s str,
-    num_2: &'s str,
-    num_4: &'s str,
-    num_6: &'s str,
-    num_7: &'s str,
-    num_8: &'s str,
-    num_9: &'s str,
-
-    segment_2: char,
-    segment_4: char,
-}
-
-struct Complete<'s> {
-    nums: [&'s str; 10],
-}
-
-impl Solved for Unsolved {}
-impl<'a> Solved for OneFourSevenEightNine<'a> {}
-impl<'a> Solved for Two<'a> {}
-impl<'a> Solved for Six<'a> {}
-impl<'a> Solved for Complete<'a> {}
-
-impl<'s, T: Solved> Solver<'s, T> {
-    fn new(samples: &'s [&'s str]) -> Solver<'s, Unsolved> {
-        Solver {
-            samples,
-            solved: Unsolved,
+    let mut num_9 = None;
+    let mut segment_4 = None;
+    for s in samples.get(6..9).unwrap() {
+        if diff_num_segments(num_4, s).is_none() {
+            num_9 = Some(s);
+            segment_4 = diff_num_segments(num_8, s);
+            break;
         }
     }
-}
 
-impl<'s> Solver<'s, Unsolved> {
-    fn solve(self) -> Solver<'s, Complete<'s>> {
-        let samples = self.samples;
+    let num_9 = num_9.expect("9 should of been found");
+    let segment_4 = segment_4.expect("8 and 9 should differ by segment 4");
 
-        let num_1 = samples[0];
-        let num_7 = samples[1];
-        let num_4 = samples[2];
-        let num_8 = samples[9];
+    let mut num_2 = None;
+    let mut segment_2 = None;
+    for s in samples.get(3..6).unwrap() {
+        if s.contains(segment_4) {
+            num_2 = Some(s);
 
-        for s in samples.get(6..9).unwrap() {
-            if diff_num_segments(num_4, s).is_none() {
-                let num_9 = s;
-                let segment_4 =
-                    diff_num_segments(num_8, num_9).expect("8 and 9 should differ by segment 4");
+            let segment_5 = diff_num_segments(num_1, s).expect("1 and 2 have a segment differing");
+            segment_2 = num_1.chars().find(|c| *c != segment_5);
 
-                let solved = OneFourSevenEightNine {
-                    num_1,
-                    num_4,
-                    num_7,
-                    num_8,
-                    num_9,
+            break;
+        }
+    }
 
-                    segment_4,
-                };
+    let num_2 = num_2.expect("2 should of been found");
+    let segment_2 = segment_2.expect("1 without segment 5 leavees segment 2");
 
-                return Solver { samples, solved }.solve().solve().solve();
+    let mut num_6 = None;
+    for s in samples.get(6..9).unwrap() {
+        if !s.contains(segment_2) {
+            num_6 = Some(s);
+            break;
+        }
+    }
+
+    let num_6 = num_6.expect("6 should of been found");
+
+    let mut num_0 = None;
+    let mut num_3 = None;
+    let mut num_5 = None;
+
+    for s in samples.get(3..9).unwrap() {
+        match s.len() {
+            6 if s != num_6 && s != num_9 => num_0 = Some(s),
+            5 if s.contains(segment_2) && !s.contains(segment_4) => num_3 = Some(s),
+            5 if !s.contains(segment_2) => num_5 = Some(s),
+            _ => (),
+        }
+    }
+
+    let ((num_0, num_3), num_5) = num_0
+        .zip(num_3)
+        .zip(num_5)
+        .expect("0, 3, and 5 should of been found");
+
+    let mut number = 0;
+
+    let nums = [
+        num_0, num_1, num_2, num_3, num_4, num_5, num_6, num_7, num_8, num_9,
+    ];
+
+    for n in result.split(' ') {
+        for (idx, num) in nums.iter().enumerate() {
+            if is_unordered_match(n, num) {
+                number *= 10;
+                number += idx;
+                break;
             }
         }
-
-        unreachable!("9 should of been found")
     }
-}
 
-impl<'s> Solver<'s, OneFourSevenEightNine<'s>> {
-    fn solve(self) -> Solver<'s, Two<'s>> {
-        let samples = self.samples;
-        let OneFourSevenEightNine {
-            num_1,
-            num_4,
-            num_7,
-            num_8,
-            num_9,
-
-            segment_4,
-            ..
-        } = self.solved;
-
-        for s in samples.get(3..6).unwrap() {
-            if s.contains(segment_4) {
-                let num_2 = s;
-                let segment_5 =
-                    diff_num_segments(num_1, num_2).expect("1 and 2 have a segment differing");
-                let segment_2 = num_1
-                    .chars()
-                    .find(|c| *c != segment_5)
-                    .expect("1 without segment 5 leavees segment 2");
-
-                let solved = Two {
-                    num_1,
-                    num_2,
-                    num_4,
-                    num_7,
-                    num_8,
-                    num_9,
-
-                    segment_2,
-                    segment_4,
-                };
-
-                return Solver { samples, solved };
-            }
-        }
-
-        unreachable!("2 should of been found")
-    }
-}
-
-impl<'s> Solver<'s, Two<'s>> {
-    fn solve(self) -> Solver<'s, Six<'s>> {
-        let samples = self.samples;
-        let Two {
-            num_1,
-            num_2,
-            num_4,
-            num_7,
-            num_8,
-            num_9,
-
-            segment_2,
-            segment_4,
-            ..
-        } = self.solved;
-
-        for s in samples.get(6..9).unwrap() {
-            if !s.contains(segment_2) {
-                let num_6 = s;
-
-                let solved = Six {
-                    num_1,
-                    num_2,
-                    num_4,
-                    num_6,
-                    num_7,
-                    num_8,
-                    num_9,
-
-                    segment_2,
-                    segment_4,
-                };
-
-                return Solver { samples, solved };
-            }
-        }
-
-        unreachable!("6 should of been found")
-    }
-}
-
-impl<'s> Solver<'s, Six<'s>> {
-    fn solve(self) -> Solver<'s, Complete<'s>> {
-        let samples = self.samples;
-        let Six {
-            num_1,
-            num_2,
-            num_4,
-            num_6,
-            num_7,
-            num_8,
-            num_9,
-
-            segment_2,
-            segment_4,
-            ..
-        } = self.solved;
-
-        let mut num_0 = None;
-        let mut num_3 = None;
-        let mut num_5 = None;
-
-        for s in samples.get(3..9).unwrap() {
-            match s.len() {
-                6 if *s != num_6 && *s != num_9 => num_0 = Some(s),
-                5 if s.contains(segment_2) && !s.contains(segment_4) => num_3 = Some(s),
-                5 if !s.contains(segment_2) => num_5 = Some(s),
-                _ => (),
-            }
-        }
-
-        let ((num_0, num_3), num_5) = num_0
-            .zip(num_3)
-            .zip(num_5)
-            .expect("0, 3, and 5 should of been found");
-
-        let nums = [
-            num_0, num_1, num_2, num_3, num_4, num_5, num_6, num_7, num_8, num_9,
-        ];
-
-        let solved = Complete { nums };
-
-        return Solver { samples, solved };
-    }
-}
-
-impl<'s> Solver<'s, Complete<'s>> {
-    fn result(&self, result: &str) -> usize {
-        let mut number = 0;
-
-        for n in result.split(' ') {
-            for (idx, num) in self.solved.nums.iter().enumerate() {
-                if is_unordered_match(n, num) {
-                    number *= 10;
-                    number += idx;
-                    break;
-                }
-            }
-        }
-
-        number
-    }
+    number
 }
 
 fn diff_num_segments(left: &str, right: &str) -> Option<char> {
