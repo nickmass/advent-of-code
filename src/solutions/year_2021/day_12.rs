@@ -3,36 +3,36 @@ use crate::HashMap;
 pub fn part_one(input: &str) -> u64 {
     let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
-    let mut visited = Tree::new();
-    let mut start = visited.branch(Node::End);
-    backtrack(&nodes, &mut start, true, Node::End)
+    let mut visited = Vec::new();
+    search(&nodes, &mut visited, false, Node::Start)
 }
 
 pub fn part_two(input: &str) -> u64 {
     let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
-    let mut visited = Tree::new();
-    let mut start = visited.branch(Node::End);
-    backtrack(&nodes, &mut start, false, Node::End)
+    let mut visited = Vec::new();
+    search(&nodes, &mut visited, true, Node::Start)
 }
 
-fn backtrack(nodes: &Nodes, visited: &mut Leaf<Node>, extra_small: bool, next: Node) -> u64 {
+fn search(nodes: &Nodes, visited: &mut Vec<Node>, extra_small: bool, next: Node) -> u64 {
     let mut count = 0;
     for node in nodes.neighbors(next) {
         count += match node {
-            Node::Start => 1,
-            Node::End => 0,
+            Node::Start => 0,
+            Node::End => 1,
             Node::Small(_) => {
-                if !visited.contains(node) {
-                    let mut visited = visited.branch(node);
-                    backtrack(nodes, &mut visited, extra_small, node)
-                } else if !extra_small {
-                    backtrack(nodes, visited, true, node)
+                if !visited.contains(&node) {
+                    visited.push(node);
+                    let count = search(nodes, visited, extra_small, node);
+                    visited.pop();
+                    count
+                } else if extra_small {
+                    search(nodes, visited, false, node)
                 } else {
                     0
                 }
             }
-            Node::Big(_) => backtrack(nodes, visited, extra_small, node),
+            Node::Big(_) => search(nodes, visited, extra_small, node),
         };
     }
     count
@@ -82,7 +82,7 @@ impl<'a> NodeCollection<'a> {
                 if let Some(node) = self.node_map.get(node) {
                     *node
                 } else {
-                    let new_node = if node.to_lowercase() == node {
+                    let new_node = if node.chars().all(|n| n >= 'a' && n <= 'z') {
                         Node::Small(self.node_map.len())
                     } else {
                         Node::Big(self.node_map.len())
@@ -101,24 +101,21 @@ impl<'a> NodeCollection<'a> {
     }
 
     fn complete(mut self) -> Nodes {
-        let mut neighbor_map = HashMap::new();
-
         self.node_map.insert("start", Node::Start);
         self.node_map.insert("end", Node::End);
+
+        let mut neighbors = HashMap::with_capacity(self.node_map.len());
         for node in self.node_map.values() {
-            let mut neighbors = Vec::new();
-            for edge in self.connections.iter() {
-                if let Some(other) = edge.connects(*node) {
-                    neighbors.push(other);
-                }
-            }
+            let connections: Vec<_> = self
+                .connections
+                .iter()
+                .filter_map(|c| c.connects(*node))
+                .collect();
 
-            neighbor_map.insert(*node, neighbors.into_boxed_slice());
+            neighbors.insert(*node, connections.into_boxed_slice());
         }
 
-        Nodes {
-            neighbors: neighbor_map,
-        }
+        Nodes { neighbors }
     }
 }
 
@@ -127,7 +124,7 @@ struct Nodes {
 }
 
 impl Nodes {
-    fn new<'a, I: Iterator<Item = (&'a str, &'a str)>>(iter: I) -> Self {
+    fn new<'a, I: Iterator<Item = (&'a str, &'a str)>>(iter: I) -> Nodes {
         let mut nodes = NodeCollection::new();
 
         for (left, right) in iter {
@@ -142,85 +139,6 @@ impl Nodes {
 
     fn neighbors<'a>(&'a self, node: Node) -> impl Iterator<Item = Node> + 'a {
         self.neighbors.get(&node).unwrap().iter().copied()
-    }
-}
-struct Tree<T: Eq> {
-    entries: Vec<Option<(usize, T)>>,
-    empty_slot: Option<usize>,
-}
-
-impl<T: Eq> Tree<T> {
-    fn new() -> Self {
-        Self {
-            entries: Vec::new(),
-            empty_slot: None,
-        }
-    }
-    fn branch(&mut self, node: T) -> Leaf<T> {
-        let id = self.entries.len();
-        self.entries.push(Some((id, node)));
-        Leaf { tree: self, id }
-    }
-
-    fn add(&mut self, parent: usize, node: T) -> usize {
-        let mut id = None;
-        for idx in self.empty_slot.unwrap_or(usize::MAX)..self.entries.len() {
-            if self.entries[idx].is_none() {
-                id = Some(idx);
-                break;
-            }
-        }
-
-        if let Some(id) = id {
-            self.empty_slot.as_mut().map(|c| *c += 1);
-            self.entries[id] = Some((parent, node));
-
-            id
-        } else {
-            let id = self.entries.len();
-            self.empty_slot = None;
-            self.entries.push(Some((parent, node)));
-
-            id
-        }
-    }
-}
-
-struct Leaf<'t, T: Eq> {
-    tree: &'t mut Tree<T>,
-    id: usize,
-}
-
-impl<'t, T: Eq> Leaf<'t, T> {
-    fn branch(&mut self, node: T) -> Leaf<T> {
-        let id = self.tree.add(self.id, node);
-        Leaf {
-            tree: self.tree,
-            id,
-        }
-    }
-
-    fn contains(&self, node: T) -> bool {
-        let mut leaf = self.id;
-        loop {
-            if let Some(entry) = &self.tree.entries[leaf] {
-                if entry.1 == node {
-                    return true;
-                } else {
-                    leaf = entry.0;
-                    if leaf == 0 {
-                        return false;
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl<'t, T: Eq> Drop for Leaf<'t, T> {
-    fn drop(&mut self) {
-        self.tree.entries[self.id] = None;
-        self.tree.empty_slot = Some(self.tree.empty_slot.unwrap_or(usize::MAX).min(self.id));
     }
 }
 
