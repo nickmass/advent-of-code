@@ -1,57 +1,29 @@
-use crate::{HashMap, HashSet};
+use crate::HashMap;
 
 pub fn part_one(input: &str) -> u64 {
-    let lines = input.trim().lines();
-    let mut nodes = NodeCollection::new();
+    let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
-    for line in lines {
-        if let Some((left, right)) = line.split_once('-') {
-            let left = nodes.add(left);
-            let right = nodes.add(right);
-
-            nodes.connect(left, right);
-        }
-    }
-    let nodes = nodes.complete();
-
-    let visited = HashSet::new();
-    backtrack(&nodes, &visited, true, Node::End)
+    let mut visited = Tree::new();
+    backtrack(&nodes, &mut visited.branch(Node::End), true, Node::End)
 }
 
 pub fn part_two(input: &str) -> u64 {
-    let lines = input.trim().lines();
-    let mut nodes = NodeCollection::new();
+    let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
-    for line in lines {
-        if let Some((left, right)) = line.split_once('-') {
-            let left = nodes.add(left);
-            let right = nodes.add(right);
-
-            nodes.connect(left, right);
-        }
-    }
-    let nodes = nodes.complete();
-
-    let visited = HashSet::new();
-    backtrack(&nodes, &visited, false, Node::End)
+    let mut visited = Tree::new();
+    backtrack(&nodes, &mut visited.branch(Node::End), false, Node::End)
 }
 
-fn backtrack(
-    nodes: &NodeCollection<Complete>,
-    visited: &HashSet<Node>,
-    extra_small: bool,
-    next: Node,
-) -> u64 {
+fn backtrack(nodes: &Nodes, visited: &mut Leaf<Node>, extra_small: bool, next: Node) -> u64 {
     let mut count = 0;
     for node in nodes.neighbors(next) {
         count += match node {
             Node::Start => 1,
             Node::End => 0,
             Node::Small(_) => {
-                if !visited.contains(&node) {
-                    let mut visited = visited.clone();
-                    visited.insert(node);
-                    backtrack(nodes, &visited, extra_small, node)
+                if !visited.contains(node) {
+                    let mut visited = visited.branch(node);
+                    backtrack(nodes, &mut visited, extra_small, node)
                 } else if !extra_small {
                     backtrack(nodes, visited, true, node)
                 } else {
@@ -87,28 +59,16 @@ impl Edge {
     }
 }
 
-trait GraphState {}
-
-struct Complete;
-struct Incomplete;
-
-impl GraphState for Complete {}
-impl GraphState for Incomplete {}
-
-struct NodeCollection<'a, T: GraphState> {
+struct NodeCollection<'a> {
     node_map: HashMap<&'a str, Node>,
     connections: Vec<Edge>,
-    neighbors: HashMap<Node, Vec<Node>>,
-    marker: std::marker::PhantomData<T>,
 }
 
-impl<'a> NodeCollection<'a, Incomplete> {
+impl<'a> NodeCollection<'a> {
     fn new() -> Self {
         Self {
             node_map: HashMap::new(),
             connections: Vec::new(),
-            neighbors: HashMap::new(),
-            marker: Default::default(),
         }
     }
 
@@ -138,7 +98,9 @@ impl<'a> NodeCollection<'a, Incomplete> {
         self.connections.push(Edge(left, right));
     }
 
-    fn complete(mut self) -> NodeCollection<'a, Complete> {
+    fn complete(mut self) -> Nodes {
+        let mut neighbor_map = HashMap::new();
+
         self.node_map.insert("start", Node::Start);
         self.node_map.insert("end", Node::End);
         for node in self.node_map.values() {
@@ -149,21 +111,82 @@ impl<'a> NodeCollection<'a, Incomplete> {
                 }
             }
 
-            self.neighbors.insert(*node, neighbors);
+            neighbor_map.insert(*node, neighbors.into_boxed_slice());
         }
 
-        NodeCollection {
-            node_map: self.node_map,
-            connections: self.connections,
-            neighbors: self.neighbors,
-            marker: Default::default(),
+        Nodes {
+            neighbors: neighbor_map,
         }
     }
 }
 
-impl<'a> NodeCollection<'a, Complete> {
-    fn neighbors<'b>(&'b self, node: Node) -> impl Iterator<Item = Node> + 'b {
+struct Nodes {
+    neighbors: HashMap<Node, Box<[Node]>>,
+}
+
+impl Nodes {
+    fn new<'a, I: Iterator<Item = (&'a str, &'a str)>>(iter: I) -> Self {
+        let mut nodes = NodeCollection::new();
+
+        for (left, right) in iter {
+            let left = nodes.add(left);
+            let right = nodes.add(right);
+
+            nodes.connect(left, right)
+        }
+
+        nodes.complete()
+    }
+
+    fn neighbors<'a>(&'a self, node: Node) -> impl Iterator<Item = Node> + 'a {
         self.neighbors.get(&node).unwrap().iter().copied()
+    }
+}
+struct Tree<T: Eq> {
+    entries: Vec<(usize, T)>,
+}
+
+impl<T: Eq> Tree<T> {
+    fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+    fn branch(&mut self, node: T) -> Leaf<T> {
+        let id = self.entries.len();
+        self.entries.push((id, node));
+        Leaf { tree: self, id }
+    }
+}
+
+struct Leaf<'t, T: Eq> {
+    tree: &'t mut Tree<T>,
+    id: usize,
+}
+
+impl<'t, T: Eq> Leaf<'t, T> {
+    fn branch(&mut self, node: T) -> Leaf<T> {
+        let id = self.tree.entries.len();
+        self.tree.entries.push((self.id, node));
+        Leaf {
+            tree: self.tree,
+            id,
+        }
+    }
+
+    fn contains(&self, node: T) -> bool {
+        let mut leaf = self.id;
+        loop {
+            let entry = &self.tree.entries[leaf];
+            if entry.1 == node {
+                return true;
+            } else {
+                leaf = entry.0;
+                if leaf == 0 {
+                    return false;
+                }
+            }
+        }
     }
 }
 
