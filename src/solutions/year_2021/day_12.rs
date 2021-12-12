@@ -4,14 +4,16 @@ pub fn part_one(input: &str) -> u64 {
     let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
     let mut visited = Tree::new();
-    backtrack(&nodes, &mut visited.branch(Node::End), true, Node::End)
+    let mut start = visited.branch(Node::End);
+    backtrack(&nodes, &mut start, true, Node::End)
 }
 
 pub fn part_two(input: &str) -> u64 {
     let nodes = Nodes::new(input.lines().filter_map(|l| l.split_once('-')));
 
     let mut visited = Tree::new();
-    backtrack(&nodes, &mut visited.branch(Node::End), false, Node::End)
+    let mut start = visited.branch(Node::End);
+    backtrack(&nodes, &mut start, false, Node::End)
 }
 
 fn backtrack(nodes: &Nodes, visited: &mut Leaf<Node>, extra_small: bool, next: Node) -> u64 {
@@ -143,19 +145,44 @@ impl Nodes {
     }
 }
 struct Tree<T: Eq> {
-    entries: Vec<(usize, T)>,
+    entries: Vec<Option<(usize, T)>>,
+    empty_slot: Option<usize>,
 }
 
 impl<T: Eq> Tree<T> {
     fn new() -> Self {
         Self {
             entries: Vec::new(),
+            empty_slot: None,
         }
     }
     fn branch(&mut self, node: T) -> Leaf<T> {
         let id = self.entries.len();
-        self.entries.push((id, node));
+        self.entries.push(Some((id, node)));
         Leaf { tree: self, id }
+    }
+
+    fn add(&mut self, parent: usize, node: T) -> usize {
+        let mut id = None;
+        for idx in self.empty_slot.unwrap_or(usize::MAX)..self.entries.len() {
+            if self.entries[idx].is_none() {
+                id = Some(idx);
+                break;
+            }
+        }
+
+        if let Some(id) = id {
+            self.empty_slot.as_mut().map(|c| *c += 1);
+            self.entries[id] = Some((parent, node));
+
+            id
+        } else {
+            let id = self.entries.len();
+            self.empty_slot = None;
+            self.entries.push(Some((parent, node)));
+
+            id
+        }
     }
 }
 
@@ -166,8 +193,7 @@ struct Leaf<'t, T: Eq> {
 
 impl<'t, T: Eq> Leaf<'t, T> {
     fn branch(&mut self, node: T) -> Leaf<T> {
-        let id = self.tree.entries.len();
-        self.tree.entries.push((self.id, node));
+        let id = self.tree.add(self.id, node);
         Leaf {
             tree: self.tree,
             id,
@@ -177,16 +203,24 @@ impl<'t, T: Eq> Leaf<'t, T> {
     fn contains(&self, node: T) -> bool {
         let mut leaf = self.id;
         loop {
-            let entry = &self.tree.entries[leaf];
-            if entry.1 == node {
-                return true;
-            } else {
-                leaf = entry.0;
-                if leaf == 0 {
-                    return false;
+            if let Some(entry) = &self.tree.entries[leaf] {
+                if entry.1 == node {
+                    return true;
+                } else {
+                    leaf = entry.0;
+                    if leaf == 0 {
+                        return false;
+                    }
                 }
             }
         }
+    }
+}
+
+impl<'t, T: Eq> Drop for Leaf<'t, T> {
+    fn drop(&mut self) {
+        self.tree.entries[self.id] = None;
+        self.tree.empty_slot = Some(self.tree.empty_slot.unwrap_or(usize::MAX).min(self.id));
     }
 }
 
