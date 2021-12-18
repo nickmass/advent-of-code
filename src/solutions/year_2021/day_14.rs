@@ -74,35 +74,31 @@ fn solve_pair(
 
 #[derive(Clone)]
 struct CharacterCounts {
-    counts: HashMap<u8, u64>,
+    counts: [u64; 24],
 }
 
 impl CharacterCounts {
     fn new() -> Self {
-        Self {
-            counts: HashMap::new(),
-        }
+        Self { counts: [0; 24] }
     }
 
     fn push(&mut self, character: u8) {
-        *self.counts.entry(character).or_default() += 1;
+        self.counts[(character - b'A') as usize] += 1;
     }
 
     fn add(&self, other: CharacterCounts) -> CharacterCounts {
-        let mut new_count = HashMap::new();
-        for (&k, &v) in self.counts.iter() {
-            *new_count.entry(k).or_default() += v;
-        }
-        for (&k, &v) in other.counts.iter() {
-            *new_count.entry(k).or_default() += v;
+        let mut new_count = [0; 24];
+
+        for idx in 0..new_count.len() {
+            new_count[idx] = self.counts[idx] + other.counts[idx];
         }
 
         CharacterCounts { counts: new_count }
     }
 
     fn solution(&self) -> u64 {
-        let min = self.counts.values().min().unwrap();
-        let max = self.counts.values().max().unwrap();
+        let min = self.counts.iter().filter(|n| **n > 0).min().unwrap();
+        let max = self.counts.iter().max().unwrap();
 
         max - min
     }
