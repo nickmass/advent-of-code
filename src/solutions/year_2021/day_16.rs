@@ -270,13 +270,7 @@ fn to_digit(c: u8) -> Option<u8> {
 
 fn to_byte(b: &[u8]) -> Option<u8> {
     match b {
-        [h, l] => {
-            if let Some((h, l)) = to_digit(*h).zip(to_digit(*l)) {
-                Some((h << 4) | l)
-            } else {
-                None
-            }
-        }
+        [h, l] => to_digit(*h).zip(to_digit(*l)).map(|(h, l)| (h << 4) | l),
         [l] => to_digit(*l),
         _ => None,
     }
