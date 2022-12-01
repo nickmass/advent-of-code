@@ -195,7 +195,6 @@ struct HexGrid {
     z_max: i32,
     x_size: usize,
     y_size: usize,
-    z_size: usize,
 }
 
 impl HexGrid {
@@ -213,7 +212,6 @@ impl HexGrid {
             z_max,
             x_size,
             y_size,
-            z_size,
         }
     }
 

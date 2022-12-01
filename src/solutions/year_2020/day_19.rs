@@ -166,7 +166,6 @@ impl std::fmt::Display for CnfRule {
 #[derive(Debug, Clone)]
 struct MatchState {
     idx: usize,
-    rec_count: usize,
 }
 
 struct RuleCollection {
@@ -348,10 +347,7 @@ impl RuleCollection {
         let r0 = self.map.get(&0);
 
         if let Some(r0) = r0 {
-            let mut state = MatchState {
-                idx: 0,
-                rec_count: 0,
-            };
+            let mut state = MatchState { idx: 0 };
             let chars: Vec<_> = s.chars().collect();
             let is_match = self.is_match(r0, &chars, &mut state);
             if is_match && state.idx == s.len() {
