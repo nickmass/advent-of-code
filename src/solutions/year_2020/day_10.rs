@@ -46,7 +46,6 @@ pub fn part_two(input: &str) -> u64 {
 
 #[derive(Debug, Copy, Clone)]
 struct Node {
-    value: u32,
     paths_to_root: u64,
 }
 
@@ -56,10 +55,7 @@ struct NodeCollection {
 
 impl NodeCollection {
     fn with_capacity(capacity: usize) -> Self {
-        let root_node = Node {
-            value: 0,
-            paths_to_root: 1,
-        };
+        let root_node = Node { paths_to_root: 1 };
         let mut map = HashMap::with_capacity(capacity);
         map.insert(0, root_node);
 
@@ -77,10 +73,7 @@ impl NodeCollection {
         }
 
         if paths_to_root != 0 {
-            let node = Node {
-                value,
-                paths_to_root,
-            };
+            let node = Node { paths_to_root };
             self.map.insert(value, node);
         }
 

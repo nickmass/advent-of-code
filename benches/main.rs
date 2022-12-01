@@ -6,6 +6,7 @@ pub fn all_years(c: &mut Criterion) {
     do_bench(c, 2019, solutions::days_2019());
     do_bench(c, 2020, solutions::days_2020());
     do_bench(c, 2021, solutions::days_2021());
+    do_bench(c, 2022, solutions::days_2022());
 }
 
 fn do_bench(c: &mut Criterion, year: u32, days: Vec<Solution>) {
