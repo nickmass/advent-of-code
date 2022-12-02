@@ -72,6 +72,19 @@ impl InputDownloader {
 
         let text = res.text()?;
 
+        let mut output = false;
+        for line in text.lines() {
+            if line.contains("<article>") {
+                output = true;
+            }
+            if output {
+                eprintln!("{}", line);
+            }
+            if line.contains("</article>") {
+                output = false;
+            }
+        }
+
         if text.contains("That's the right answer") {
             Ok(true)
         } else {
