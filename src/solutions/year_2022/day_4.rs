@@ -17,14 +17,12 @@ pub fn part_two(input: &str) -> usize {
 }
 
 fn parse_line(line: &str) -> Option<(u64, u64, u64, u64)> {
-    let (left, right) = line.split_once(",")?;
-    let (x1, x2) = left.split_once("-")?;
-    let (y1, y2) = right.split_once("-")?;
+    let mut parts = line.split(['-', ',']).filter_map(|n| n.parse().ok());
 
-    let x1 = x1.parse().ok()?;
-    let x2 = x2.parse().ok()?;
-    let y1 = y1.parse().ok()?;
-    let y2 = y2.parse().ok()?;
+    let x1 = parts.next()?;
+    let x2 = parts.next()?;
+    let y1 = parts.next()?;
+    let y2 = parts.next()?;
 
     Some((x1, x2, y1, y2))
 }
