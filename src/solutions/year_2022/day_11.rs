@@ -19,16 +19,9 @@ fn solve<const ROUNDS: usize, const WORRY_FACTOR: u64>(input: &str) -> u64 {
         for idx in 0..monkeys.len() {
             assert_eq!(monkeys[idx].id, idx);
 
-            while let Some(item) = monkeys[idx].items.pop() {
-                monkeys[idx].inspections += 1;
-                let new = monkeys[idx].op.apply(item) / WORRY_FACTOR;
-                if new % monkeys[idx].test == 0 {
-                    let pass = monkeys[idx].pass;
-                    monkeys[pass].items.push(new % total_test);
-                } else {
-                    let fail = monkeys[idx].fail;
-                    monkeys[fail].items.push(new % total_test);
-                }
+            while let Some(new) = monkeys[idx].inspect::<WORRY_FACTOR>() {
+                let throw_idx = monkeys[idx].target(new);
+                monkeys[throw_idx].push(new % total_test);
             }
         }
     }
@@ -93,6 +86,26 @@ struct Monkey {
     pass: usize,
     fail: usize,
     inspections: u64,
+}
+
+impl Monkey {
+    fn push(&mut self, item: u64) {
+        self.items.push(item)
+    }
+
+    fn inspect<const WORRY_FACTOR: u64>(&mut self) -> Option<u64> {
+        let item = self.items.pop()?;
+        self.inspections += 1;
+        Some(self.op.apply(item) / WORRY_FACTOR)
+    }
+
+    fn target(&self, new_item: u64) -> usize {
+        if new_item % self.test == 0 {
+            self.pass
+        } else {
+            self.fail
+        }
+    }
 }
 
 enum Operation {
