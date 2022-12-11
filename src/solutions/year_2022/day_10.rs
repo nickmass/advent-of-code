@@ -9,13 +9,13 @@ pub fn part_one(input: &str) -> i32 {
 
     let mut next_signal = 20;
 
-    let mut signal_strength = Vec::new();
+    let mut signal_strength = 0;
 
     for instruction in instructions {
         cycles += instruction.cycles();
 
         if cycles >= next_signal {
-            signal_strength.push(next_signal * x);
+            signal_strength += next_signal * x;
             next_signal += 40;
         }
 
@@ -25,7 +25,7 @@ pub fn part_one(input: &str) -> i32 {
         }
     }
 
-    signal_strength.into_iter().sum()
+    signal_strength
 }
 
 pub fn part_two(input: &str) -> String {
@@ -252,5 +252,13 @@ noop
 noop"#;
 
     assert_eq!(13140, part_one(input));
-    assert_eq!(0, part_two(input));
+
+    let screen = r#"##  ##  ##  ##  ##  ##  ##  ##  ##  ##  
+###   ###   ###   ###   ###   ###   ### 
+####    ####    ####    ####    ####    
+#####     #####     #####     #####     
+######      ######      ######      ####
+#######       #######       #######     "#;
+
+    assert_eq!(screen, part_two(input));
 }
