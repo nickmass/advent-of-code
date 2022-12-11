@@ -5,12 +5,12 @@ use std::time::Duration;
 #[global_allocator]
 static GLOBAL: CountingAlloc = CountingAlloc::new();
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(any(not(target_os = "linux"), feature = "basic_profiler"))]
 pub use fallback::Profiler;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "basic_profiler")))]
 pub use linux::Profiler;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(feature = "basic_profiler")))]
 mod linux {
     use perf_event::{events, Builder, Counter, Group};
 
@@ -78,7 +78,7 @@ mod linux {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(any(not(target_os = "linux"), feature = "basic_profiler"))]
 mod fallback {
     use super::{Metrics, GLOBAL};
 
