@@ -1,5 +1,7 @@
 use crate::HashMap;
 
+use std::collections::VecDeque;
+
 pub fn part_one(input: &str) -> usize {
     let grid = Grid::new(input);
 
@@ -86,33 +88,38 @@ impl Grid {
 
     fn search(&self) -> usize {
         let mut visited = HashMap::new();
-        self.do_search(self.start, &mut visited)
+        let mut haystack = VecDeque::new();
+        self.do_search(self.start, &mut haystack, &mut visited)
     }
 
     fn search_wide(&self) -> usize {
         let mut min_count = usize::MAX;
         let mut visited = HashMap::new();
+        let mut haystack = VecDeque::new();
 
         for &pos in self.minimums.iter() {
-            let count = self.do_search(pos, &mut visited);
+            let count = self.do_search(pos, &mut haystack, &mut visited);
             min_count = min_count.min(count);
         }
 
         min_count
     }
 
-    fn do_search(&self, position: Point, visited: &mut HashMap<Point, usize>) -> usize {
-        let mut haystack = Vec::new();
-        let mut min_count = usize::MAX;
-        haystack.extend(self.neighbors(position, 0));
+    fn do_search(
+        &self,
+        position: Point,
+        haystack: &mut VecDeque<(Point, usize)>,
+        visited: &mut HashMap<Point, usize>,
+    ) -> usize {
+        haystack.clear();
+        haystack.extend(self.valid_neighbors(position, 0));
 
-        while let Some((next, count)) = haystack.pop() {
+        while let Some((next, count)) = haystack.pop_front() {
             if next == self.end {
-                min_count = min_count.min(count);
-                continue;
+                return count;
             }
 
-            for (neighbor, count) in self.neighbors(next, count) {
+            for (neighbor, count) in self.valid_neighbors(next, count) {
                 if let Some(&old_count) = visited.get(&neighbor) {
                     if old_count <= count {
                         continue;
@@ -120,39 +127,30 @@ impl Grid {
                 }
 
                 visited.insert(neighbor, count);
-                haystack.push((neighbor, count))
+                haystack.push_back((neighbor, count))
             }
         }
 
-        min_count
+        usize::MAX
     }
 
-    fn neighbors(&self, point: Point, count: usize) -> impl Iterator<Item = (Point, usize)> {
-        let count = count + 1;
-
+    fn valid_neighbors(
+        &self,
+        point: Point,
+        count: usize,
+    ) -> impl Iterator<Item = (Point, usize)> + '_ {
         let me = self.get(point).unwrap();
 
-        let left = point.adjust(1, 0);
-        let right = point.adjust(-1, 0);
-        let up = point.adjust(0, 1);
-        let down = point.adjust(0, -1);
+        let points = [
+            point.adjust(1, 0),
+            point.adjust(-1, 0),
+            point.adjust(0, 1),
+            point.adjust(0, -1),
+        ];
 
-        self.get(left)
-            .filter(|v| *v <= me + 1)
-            .map(|_| (left, count))
+        points
             .into_iter()
-            .chain(
-                self.get(right)
-                    .filter(|v| *v <= me + 1)
-                    .map(|_| (right, count)),
-            )
-            .chain(self.get(up).filter(|v| *v <= me + 1).map(|_| (up, count)))
-            .chain(
-                self.get(down)
-                    .filter(|v| *v <= me + 1)
-                    .map(|_| (down, count)),
-            )
-            .filter(move |_| me != 255)
+            .flat_map(move |p| self.get(p).filter(|&v| v <= me + 1).map(|_| (p, count + 1)))
     }
 }
 
