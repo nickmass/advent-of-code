@@ -80,13 +80,13 @@ pub fn part_two(input: &str) -> String {
         max_x = max_x.max(*x + 1);
     }
 
-    let mut result = String::with_capacity((max_x * max_y) as usize);
+    let mut result = String::with_capacity((max_x * max_y) as usize * 2);
     for y in 0..max_y {
         for x in 0..max_x {
             if dots.contains(&(x, y)) {
-                result.push('#');
+                result.push_str("##");
             } else {
-                result.push(' ');
+                result.push_str("  ");
             }
         }
         result.push('\n');

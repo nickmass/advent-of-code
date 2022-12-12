@@ -34,7 +34,7 @@ pub fn part_two(input: &str) -> String {
         .lines()
         .filter_map(|l| l.parse::<Instruction>().ok());
 
-    let mut screen = String::with_capacity(41 * 6);
+    let mut screen = String::with_capacity(41 * 6 * 2);
     let mut x = 1;
     let mut cycles = 0;
 
@@ -47,9 +47,9 @@ pub fn part_two(input: &str) -> String {
                 screen.push('\n');
             }
             if v == x || v == x + 1 || v == x - 1 {
-                screen.push('#');
+                screen.push_str("##");
             } else {
-                screen.push(' ');
+                screen.push_str("  ");
             }
         }
 
@@ -253,12 +253,12 @@ noop"#;
 
     assert_eq!(13140, part_one(input));
 
-    let screen = r#"##  ##  ##  ##  ##  ##  ##  ##  ##  ##  
-###   ###   ###   ###   ###   ###   ### 
-####    ####    ####    ####    ####    
-#####     #####     #####     #####     
-######      ######      ######      ####
-#######       #######       #######     "#;
+    let screen = r#"####    ####    ####    ####    ####    ####    ####    ####    ####    ####    
+######      ######      ######      ######      ######      ######      ######  
+########        ########        ########        ########        ########        
+##########          ##########          ##########          ##########          
+############            ############            ############            ########
+##############              ##############              ##############          "#;
 
     assert_eq!(screen, part_two(input));
 }
