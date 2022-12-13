@@ -1,7 +1,9 @@
+use std::cmp::Ordering;
+
 pub fn part_one(input: &str) -> usize {
     let packets = input.trim().split("\n\n").filter_map(|pairs| {
         let (left, right) = pairs.split_once("\n")?;
-        Some((left.parse::<Packet>().ok()?, right.parse::<Packet>().ok()?))
+        Some((parse_packet(left), parse_packet(right)))
     });
 
     let mut count = 0;
@@ -16,16 +18,15 @@ pub fn part_one(input: &str) -> usize {
 
 pub fn part_two(input: &str) -> usize {
     let special_packets = ["[[2]]", "[[6]]"].into_iter().filter_map(|l| {
-        let mut p = l.parse::<Packet>().ok()?;
-        p.special = true;
-        Some(p)
+        let p = parse_packet(l);
+        Some((p, true))
     });
 
     let mut packets: Vec<_> = input
         .trim()
         .lines()
         .filter(|l| l.len() > 0)
-        .filter_map(|l| l.parse::<Packet>().ok())
+        .map(|l| (parse_packet(l), false))
         .chain(special_packets)
         .collect();
 
@@ -34,184 +35,90 @@ pub fn part_two(input: &str) -> usize {
     packets
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.special)
+        .filter(|(_, (_, s))| *s)
         .map(|(i, _)| i + 1)
         .product()
 }
 
-fn compare_packet(left: &[PacketToken], right: &[PacketToken]) -> bool {
-    let mut lx = 0;
-    let mut rx = 0;
+enum Packet {
+    Num(i32),
+    List(Vec<Packet>),
+}
 
-    let mut l_close = Closer::new();
-    let mut r_close = Closer::new();
-
-    loop {
-        let (left, l_faked) = l_close.get(lx, left);
-        let (right, r_faked) = r_close.get(rx, right);
-
-        match (left, right) {
-            (Some(PacketToken::Open), Some(PacketToken::Open))
-            | (Some(PacketToken::Close), Some(PacketToken::Close)) => (),
-            (Some(PacketToken::Open), Some(PacketToken::Num(_))) => {
-                r_close.close(rx + 1);
-
-                rx -= 1;
-            }
-            (Some(PacketToken::Num(_)), Some(PacketToken::Open)) => {
-                l_close.close(lx + 1);
-
-                lx -= 1;
-            }
-            (Some(PacketToken::Num(nl)), Some(PacketToken::Num(nr))) => {
-                if nl < nr {
-                    return true;
-                } else if nl > nr {
-                    return false;
+fn compare_packet(left: &Packet, right: &Packet) -> Ordering {
+    match (left, right) {
+        (Packet::Num(l), Packet::Num(r)) => l.cmp(r),
+        (Packet::List(l), Packet::List(r)) => {
+            for (l, r) in l.iter().zip(r.iter()) {
+                let result = compare_packet(l, r);
+                if result.is_ne() {
+                    return result;
                 }
             }
-            (_, Some(PacketToken::Close)) => return false,
-            (Some(PacketToken::Close), _) => return true,
-            (None, Some(_)) => return true,
-            (Some(_), None) => return false,
-            (None, None) => return true,
-        }
 
-        if !l_faked {
-            lx += 1;
+            l.len().cmp(&r.len())
         }
-        if !r_faked {
-            rx += 1;
+        (Packet::List(_), Packet::Num(r)) => {
+            compare_packet(left, &Packet::List(vec![Packet::Num(*r)]))
+        }
+        (Packet::Num(l), Packet::List(_)) => {
+            compare_packet(&Packet::List(vec![Packet::Num(*l)]), right)
         }
     }
 }
 
-fn parse_packet(input: &str) -> Vec<PacketToken> {
+fn parse_packet(input: &str) -> Packet {
     let mut num_start = None;
-    let mut tokens = Vec::new();
+    let mut stack = Vec::new();
+
     for (idx, &b) in input.as_bytes().iter().enumerate() {
         if b == b']' || b == b',' {
             if let Some(start) = num_start.take() {
                 let num = input[start..idx].parse::<i32>().unwrap();
-                tokens.push(PacketToken::Num(num));
+                if let Some(Packet::List(list)) = stack.last_mut() {
+                    list.push(Packet::Num(num));
+                }
             }
         }
         match b {
-            b'[' => tokens.push(PacketToken::Open),
-            b']' => tokens.push(PacketToken::Close),
+            b'[' => {
+                stack.push(Packet::List(Vec::new()));
+            }
+            b']' => {
+                let packet = stack.pop().unwrap();
+                if let Some(Packet::List(list)) = stack.last_mut() {
+                    list.push(packet)
+                } else {
+                    return packet;
+                }
+            }
             b'0'..=b'9' if num_start.is_none() => num_start = Some(idx),
             _ => (),
         }
     }
 
-    tokens
-}
-
-struct Closer {
-    count: usize,
-    idx: Option<usize>,
-    cursor: usize,
-}
-
-impl Closer {
-    fn new() -> Self {
-        Self {
-            count: 0,
-            idx: None,
-            cursor: 0,
-        }
-    }
-
-    fn get(&mut self, idx: usize, arr: &[PacketToken]) -> (Option<PacketToken>, bool) {
-        self.advance(idx);
-
-        if let Some(close) = self.next() {
-            return (Some(close), true);
-        }
-
-        (arr.get(idx).copied(), false)
-    }
-
-    fn close(&mut self, idx: usize) {
-        if let Some(_) = self.idx {
-            self.count += 1
-        } else {
-            self.idx = Some(idx);
-            self.count = 1;
-        }
-    }
-
-    fn advance(&mut self, idx: usize) {
-        self.cursor = idx;
-    }
-}
-
-impl Iterator for Closer {
-    type Item = PacketToken;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(idx) = self.idx {
-            if self.cursor == idx {
-                self.count -= 1;
-                if self.count == 0 {
-                    self.idx = None;
-                }
-                return Some(PacketToken::Close);
-            }
-        }
-
-        None
-    }
-}
-
-struct Packet {
-    tokens: Vec<PacketToken>,
-    special: bool,
-}
-
-impl std::str::FromStr for Packet {
-    type Err = std::convert::Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let tokens = parse_packet(s);
-
-        Ok(Packet {
-            tokens,
-            special: false,
-        })
-    }
+    unreachable!()
 }
 
 impl std::cmp::PartialOrd for Packet {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl std::cmp::Ord for Packet {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if compare_packet(&self.tokens, &other.tokens) {
-            std::cmp::Ordering::Less
-        } else {
-            std::cmp::Ordering::Greater
-        }
+    fn cmp(&self, other: &Self) -> Ordering {
+        compare_packet(self, other)
     }
 }
 
 impl std::cmp::PartialEq for Packet {
-    fn eq(&self, _: &Self) -> bool {
-        false
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
     }
 }
 
 impl std::cmp::Eq for Packet {}
-
-#[derive(Debug, Copy, Clone)]
-enum PacketToken {
-    Open,
-    Close,
-    Num(i32),
-}
 
 #[test]
 fn test() {
