@@ -3,71 +3,57 @@ use crate::HashMap;
 use std::collections::VecDeque;
 
 pub fn part_one(input: &str) -> usize {
-    let grid = Grid::new(input);
+    let grid = Grid::new(input.trim());
 
     grid.search()
 }
 
 pub fn part_two(input: &str) -> usize {
-    let grid = Grid::new(input);
+    let grid = Grid::new(input.trim());
 
     grid.search_wide()
 }
 
-struct Grid {
-    cells: Vec<u8>,
+struct Grid<'a> {
+    cells: &'a str,
     width: usize,
+    stride: usize,
     height: usize,
     start: Point,
     minimums: Vec<Point>,
     end: Point,
 }
 
-impl Grid {
-    fn new(input: &str) -> Self {
-        let mut cells = Vec::new();
+impl<'a> Grid<'a> {
+    fn new(input: &'a str) -> Self {
         let mut width = 0;
         let mut height = 0;
         let mut start = Point::default();
         let mut end = Point::default();
-        let mut y = 0;
         let mut minimums = Vec::new();
 
-        for line in input.lines() {
-            height += 1;
-            if width == 0 {
-                width = line.len();
-            }
-
-            let mut x = 0;
-
-            for c in line.bytes() {
-                let value = match c {
-                    b'a'..=b'z' => c - b'a',
-                    b'S' => {
-                        start = Point::new(x, y);
-                        0
-                    }
-                    b'E' => {
-                        end = Point::new(x, y);
-                        b'z' - b'a'
-                    }
-                    _ => unreachable!(),
+        for (y, line) in input.lines().enumerate() {
+            for (x, c) in line.bytes().enumerate() {
+                let x = x as isize;
+                let y = y as isize;
+                match c {
+                    b'S' => start = Point::new(x, y),
+                    b'E' => end = Point::new(x, y),
+                    b'a' => minimums.push(Point::new(x, y)),
+                    _ => (),
                 };
-
-                if value == 0 {
-                    minimums.push(Point::new(x, y));
-                }
-
-                cells.push(value);
-                x += 1;
             }
-            y += 1;
+
+            width = line.len();
+            height = y + 1;
         }
 
+        minimums.push(start);
+
         Self {
-            cells,
+            cells: input,
             width,
+            stride: width + 1,
             height,
             start,
             end,
@@ -83,7 +69,15 @@ impl Grid {
         let x = p.x as usize;
         let y = p.y as usize;
 
-        self.cells.get(y * self.width + x).copied()
+        self.cells
+            .as_bytes()
+            .get(y * self.stride + x)
+            .copied()
+            .map(|c| match c {
+                b'S' => b'a',
+                b'E' => b'z',
+                _ => c,
+            })
     }
 
     fn search(&self) -> usize {
