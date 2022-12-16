@@ -1,10 +1,10 @@
 use crate::HashSet;
 
-pub fn part_one(input: &str) -> u64 {
+pub fn part_one(input: &str) -> i32 {
     solve_part_one::<2000000>(input)
 }
 
-fn solve_part_one<const Y: i32>(input: &str) -> u64 {
+fn solve_part_one<const Y: i32>(input: &str) -> i32 {
     let sensors = input
         .trim()
         .lines()
@@ -12,32 +12,31 @@ fn solve_part_one<const Y: i32>(input: &str) -> u64 {
         .filter(|s| s.near_y(Y))
         .collect::<Vec<_>>();
 
-    let mut min_x = None;
-    let mut max_x = None;
+    let mut ranges = sensors
+        .iter()
+        .filter_map(|s| s.range_on_y(Y))
+        .collect::<Vec<_>>();
 
-    let mut target_beacons = HashSet::new();
+    ranges.sort_by_key(|&(s, _e)| s);
 
-    for sensor in sensors.iter() {
-        let small_x = sensor.pos.0 - sensor.distance;
-        let large_x = sensor.pos.0 + sensor.distance;
-        min_x = Some(min_x.unwrap_or(small_x).min(small_x));
-        max_x = Some(max_x.unwrap_or(large_x).max(large_x));
+    let (mut count, _) = ranges
+        .into_iter()
+        .fold((0, i32::MIN), |(acc, prev), (start, end)| {
+            if start > prev {
+                (acc + (end - start) + 1, end)
+            } else if end > prev {
+                (acc + (end - prev), end)
+            } else {
+                (acc, prev)
+            }
+        });
 
-        if sensor.beacon.1 == Y {
-            target_beacons.insert(sensor.beacon);
-        }
-    }
+    let target_beacons = sensors
+        .into_iter()
+        .filter_map(|s| (s.beacon.1 == Y).then_some(true))
+        .collect::<HashSet<_>>();
 
-    let mut count = 0;
-    for x in min_x.unwrap_or(0)..=max_x.unwrap_or(0) {
-        if sensors.iter().any(|s| s.is_covering(x, Y)) {
-            count += 1;
-        }
-    }
-
-    for _ in target_beacons {
-        count -= 1;
-    }
+    count -= target_beacons.len() as i32;
 
     count
 }
@@ -97,6 +96,23 @@ impl Sensor {
 
     fn border(&self) -> BorderIter {
         BorderIter::new(self.pos, self.distance + 1)
+    }
+
+    fn range_on_y(&self, y: i32) -> Option<(i32, i32)> {
+        let diff = self.pos.1.abs_diff(y) as i32;
+        if diff > self.distance {
+            return None;
+        }
+
+        let from_edge = self.distance - diff;
+        let row_count = from_edge * 2 + 1;
+
+        let half = (row_count - 1) / 2;
+
+        let start = self.pos.0 - half;
+        let end = self.pos.0 + half;
+
+        Some((start, end))
     }
 }
 
