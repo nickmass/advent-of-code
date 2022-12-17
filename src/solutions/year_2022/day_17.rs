@@ -1,20 +1,18 @@
-use crate::HashMap;
-
 pub fn part_one(input: &str) -> usize {
-    solve(input, 2022)
+    solve(input, 2022, false)
 }
 
 pub fn part_two(input: &str) -> usize {
-    solve(input, 1000000000000)
+    solve(input, 1000000000000, true)
 }
 
-fn solve(input: &str, rounds: usize) -> usize {
-    let mut grid = vec![0u8; 2048 * 4 * 4];
+fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
+    let mut grid = [0u8; 2048 * 4 * 4];
 
     let mut moves = input.trim().bytes().enumerate().cycle();
     let blocks = Blocks::default();
 
-    let mut drop_state = HashMap::new();
+    let mut drop_state = crate::HashMap::new();
     let mut skip_height = None;
 
     let mut height = 0;
@@ -26,10 +24,6 @@ fn solve(input: &str, rounds: usize) -> usize {
         block_y = height + 3;
 
         loop {
-            if block_y + 4 > grid.len() {
-                grid.resize(grid.len() * 2, 0);
-            }
-
             let move_area = read_grid(&grid, block_y);
             let input_idx = match moves.next() {
                 Some((idx, b'<')) => {
@@ -50,7 +44,7 @@ fn solve(input: &str, rounds: usize) -> usize {
             let freeze = block_y == 0 || (read_grid(&grid, block_y - 1) & block) != 0;
 
             if freeze {
-                if skip_height.is_none() {
+                if smart_skip && skip_height.is_none() {
                     if let Some((repeat_round, repeat_height)) =
                         drop_state.insert((move_area, block, input_idx), (round, height))
                     {
