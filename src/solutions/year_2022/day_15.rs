@@ -33,7 +33,7 @@ fn solve_part_one<const Y: i32>(input: &str) -> i32 {
 
     let target_beacons = sensors
         .into_iter()
-        .filter_map(|s| (s.beacon.1 == Y).then_some(true))
+        .filter_map(|s| (s.beacon.1 == Y).then_some(()))
         .collect::<HashSet<_>>();
 
     count -= target_beacons.len() as i32;
