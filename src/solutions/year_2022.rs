@@ -19,6 +19,7 @@ mod day_15;
 mod day_16;
 mod day_17;
 mod day_18;
+mod day_19;
 
 pub fn days() -> Vec<Solution> {
     vec![
@@ -40,5 +41,6 @@ pub fn days() -> Vec<Solution> {
         solution!(16, day_16::part_one, day_16::part_two),
         solution!(17, day_17::part_one, day_17::part_two),
         solution!(18, day_18::part_one, day_18::part_two),
+        solution!(19, day_19::part_one, day_19::part_two),
     ]
 }
