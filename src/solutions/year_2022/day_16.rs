@@ -361,7 +361,7 @@ impl<'a> PairWalker<'a> {
 
             // Use the partner with the most time remaining to collect maximum pressure
             let min = a.min(b);
-            let time = self.time_limit - min;
+            let time = self.time_limit.saturating_sub(min);
 
             sum += next * time;
         }

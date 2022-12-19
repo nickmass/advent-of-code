@@ -7,7 +7,8 @@ pub fn part_two(input: &str) -> usize {
 }
 
 fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
-    let mut grid = [0u8; 2048 * 4 * 4];
+    const WORK_SIZE: usize = 128;
+    let mut grid = [0u8; (WORK_SIZE * 2) * 4 + 10];
 
     let mut moves = input.trim().bytes().enumerate().cycle();
     let blocks = Blocks::default();
@@ -15,6 +16,7 @@ fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
     let mut drop_state = crate::HashMap::new();
     let mut skip_height = None;
 
+    let mut grid_offset = 0;
     let mut height = 0;
     let mut round = 0;
     let mut block_y;
@@ -24,7 +26,7 @@ fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
         block_y = height + 3;
 
         loop {
-            let move_area = read_grid(&grid, block_y);
+            let move_area = read_grid(&grid, block_y - grid_offset);
             let input_idx = match moves.next() {
                 Some((idx, b'<')) => {
                     if (block & LEFT_LIMITS) == 0 && ((block << 1) & move_area) == 0 {
@@ -41,7 +43,7 @@ fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
                 _ => unreachable!(),
             };
 
-            let freeze = block_y == 0 || (read_grid(&grid, block_y - 1) & block) != 0;
+            let freeze = block_y == 0 || (read_grid(&grid, block_y - 1 - grid_offset) & block) != 0;
 
             if freeze {
                 if smart_skip && skip_height.is_none() {
@@ -57,8 +59,21 @@ fn solve(input: &str, rounds: usize, smart_skip: bool) -> usize {
                     }
                 }
 
-                write_grid(&mut grid, block_y, block);
+                write_grid(&mut grid, block_y - grid_offset, block);
+
                 height = height.max(block_y + block_height);
+
+                if (height - grid_offset) > WORK_SIZE * 2 {
+                    for i in 0..WORK_SIZE {
+                        let src = height - grid_offset - i;
+                        let dest = height - grid_offset - WORK_SIZE - i;
+
+                        grid[dest] = grid[src];
+                        grid[src] = 0;
+                    }
+                    grid_offset += WORK_SIZE;
+                }
+
                 break;
             } else {
                 block_y -= 1;
