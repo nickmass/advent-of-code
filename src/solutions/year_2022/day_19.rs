@@ -1,5 +1,9 @@
+#![allow(unused)]
+
 pub fn part_one(input: &str) -> u32 {
     return 0;
+
+    // Too slow
     input
         .trim()
         .lines()
@@ -10,6 +14,8 @@ pub fn part_one(input: &str) -> u32 {
 
 pub fn part_two(input: &str) -> u32 {
     return 0;
+
+    // Too slow
     input
         .trim()
         .lines()
@@ -107,8 +113,10 @@ impl Blueprint {
             && resources.obsidian >= self.geode_robot_obsidian)
             .then_some(Action::BuildGeodeRobot);
 
+        let do_nothing = (resources.ore / 2 < self.ore_robot_ore).then_some(Action::DoNothing);
+
         [
-            Some(Action::DoNothing),
+            do_nothing,
             ore_robot,
             clay_robot,
             obsidian_robot,
@@ -159,7 +167,15 @@ impl Blueprint {
 
     fn find_max_score(&self, time_remaining: u32, score_method: bool) -> u32 {
         let mut max_geodes_at_time = [0; 100];
+        let mut action_length = [0u64; 6];
+
+        let mut hash_skip = 0u64;
+        let mut hash_take = 0u64;
+        let mut max_skip = 0u64;
+        let mut max_take = 0u64;
+        let mut total = 0u64;
         println!("Blueprint: {}", self.id);
+
         let resources = Resources::new(time_remaining);
         let mut attempted = crate::HashSet::new();
         let mut min_time = 100;
@@ -171,6 +187,7 @@ impl Blueprint {
         );
 
         while let Some((action, mut resources)) = tree.pop() {
+            total += 1;
             self.perform_action(&mut resources, action);
 
             if resources.time_remaining < min_time {
@@ -183,34 +200,51 @@ impl Blueprint {
                 let score = self.score(&resources, score_method);
                 if score > max_score {
                     max_score = score;
+                    println!("Current Max: {}", score);
                 }
 
                 continue;
             }
 
-            if max_geodes_at_time[resources.time_remaining as usize] > resources.geode_robots + 3 {
+            let time_idx = resources.time_remaining as usize;
+            if max_geodes_at_time[time_idx] > resources.geode_robots + 1 {
+                max_skip += 1;
                 continue;
-            } else if max_geodes_at_time[resources.time_remaining as usize] < resources.geode_robots
-            {
-                max_geodes_at_time[resources.time_remaining as usize] = resources.geode_robots;
+            } else if max_geodes_at_time[time_idx] < resources.geode_robots {
+                max_geodes_at_time[time_idx] = resources.geode_robots;
             }
+            max_take += 1;
 
             if !attempted.contains(&resources) {
-                tree.extend(
-                    self.possible_actions(&resources)
-                        .map(|a| (a, resources.clone())),
-                );
+                let actions = self.possible_actions(&resources);
+                let mut count = 0;
+                hash_take += 1;
+                for a in actions {
+                    tree.push((a, resources.clone()));
+                    count += 1;
+                }
+                action_length[count] += 1;
                 attempted.insert(resources.clone());
+            } else {
+                hash_skip += 1;
             }
         }
 
-        println!("Max: {}", max_score);
+        println!("Max: {}, Total: {}, Action Lengths: {:#?}, Hash Skip: {}, Hash Take: {}, Max Skip: {}, Max Take: {}", max_score,
+                 total,
+                 action_length,
+                 hash_skip,
+                 hash_take,
+                 max_skip,
+                 max_take
+        );
 
         max_score
     }
 }
 
 #[test]
+#[ignore = "too slow"]
 fn test() {
     let input = r#"Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
 Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian."#;
