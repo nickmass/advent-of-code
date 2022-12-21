@@ -1,9 +1,4 @@
-#![allow(unused)]
-
-pub fn part_one(input: &str) -> u32 {
-    return 0;
-
-    // Too slow
+pub fn part_one(input: &str) -> u16 {
     input
         .trim()
         .lines()
@@ -12,10 +7,7 @@ pub fn part_one(input: &str) -> u32 {
         .sum()
 }
 
-pub fn part_two(input: &str) -> u32 {
-    return 0;
-
-    // Too slow
+pub fn part_two(input: &str) -> u16 {
     input
         .trim()
         .lines()
@@ -36,19 +28,19 @@ enum Action {
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 struct Resources {
-    ore: u32,
-    ore_robots: u32,
-    clay: u32,
-    clay_robots: u32,
-    obsidian: u32,
-    obsidian_robots: u32,
-    geodes: u32,
-    geode_robots: u32,
-    time_remaining: u32,
+    ore: u16,
+    ore_robots: u16,
+    clay: u16,
+    clay_robots: u16,
+    obsidian: u16,
+    obsidian_robots: u16,
+    geodes: u16,
+    geode_robots: u16,
+    time_remaining: u16,
 }
 
 impl Resources {
-    fn new(time_remaining: u32) -> Self {
+    fn new(time_remaining: u16) -> Self {
         Resources {
             ore: 0,
             ore_robots: 1,
@@ -64,13 +56,13 @@ impl Resources {
 }
 
 struct Blueprint {
-    id: u32,
-    ore_robot_ore: u32,
-    clay_robot_ore: u32,
-    obsidian_robot_ore: u32,
-    obsidian_robot_clay: u32,
-    geode_robot_ore: u32,
-    geode_robot_obsidian: u32,
+    id: u16,
+    ore_robot_ore: u16,
+    clay_robot_ore: u16,
+    obsidian_robot_ore: u16,
+    obsidian_robot_clay: u16,
+    geode_robot_ore: u16,
+    geode_robot_obsidian: u16,
 }
 
 impl Blueprint {
@@ -157,7 +149,7 @@ impl Blueprint {
         }
     }
 
-    fn score(&self, resources: &Resources, score_method: bool) -> u32 {
+    fn score(&self, resources: &Resources, score_method: bool) -> u16 {
         if score_method {
             resources.geodes
         } else {
@@ -165,20 +157,11 @@ impl Blueprint {
         }
     }
 
-    fn find_max_score(&self, time_remaining: u32, score_method: bool) -> u32 {
+    fn find_max_score(&self, time_remaining: u16, score_method: bool) -> u16 {
         let mut max_geodes_at_time = [0; 100];
-        let mut action_length = [0u64; 6];
-
-        let mut hash_skip = 0u64;
-        let mut hash_take = 0u64;
-        let mut max_skip = 0u64;
-        let mut max_take = 0u64;
-        let mut total = 0u64;
-        println!("Blueprint: {}", self.id);
 
         let resources = Resources::new(time_remaining);
         let mut attempted = crate::HashSet::new();
-        let mut min_time = 100;
         let mut max_score = 0;
         let mut tree = Vec::new();
         tree.extend(
@@ -187,57 +170,35 @@ impl Blueprint {
         );
 
         while let Some((action, mut resources)) = tree.pop() {
-            total += 1;
             self.perform_action(&mut resources, action);
-
-            if resources.time_remaining < min_time {
-                min_time = resources.time_remaining;
-                println!("Time: {}  Tree size: {}", min_time, tree.len());
-            }
 
             if resources.time_remaining == 1 {
                 self.perform_action(&mut resources, Action::DoNothing);
                 let score = self.score(&resources, score_method);
                 if score > max_score {
                     max_score = score;
-                    println!("Current Max: {}", score);
                 }
 
                 continue;
             }
 
             let time_idx = resources.time_remaining as usize;
-            if max_geodes_at_time[time_idx] > resources.geode_robots + 1 {
-                max_skip += 1;
+
+            // This is hacky and not safe to assume that it wont filter out the optimal path
+            if max_geodes_at_time[time_idx] > resources.geodes + 2 {
                 continue;
-            } else if max_geodes_at_time[time_idx] < resources.geode_robots {
-                max_geodes_at_time[time_idx] = resources.geode_robots;
+            } else if max_geodes_at_time[time_idx] < resources.geodes {
+                max_geodes_at_time[time_idx] = resources.geodes;
             }
-            max_take += 1;
 
             if !attempted.contains(&resources) {
-                let actions = self.possible_actions(&resources);
-                let mut count = 0;
-                hash_take += 1;
-                for a in actions {
-                    tree.push((a, resources.clone()));
-                    count += 1;
-                }
-                action_length[count] += 1;
-                attempted.insert(resources.clone());
-            } else {
-                hash_skip += 1;
+                tree.extend(
+                    self.possible_actions(&resources)
+                        .map(|a| (a, resources.clone())),
+                );
+                attempted.insert(resources);
             }
         }
-
-        println!("Max: {}, Total: {}, Action Lengths: {:#?}, Hash Skip: {}, Hash Take: {}, Max Skip: {}, Max Take: {}", max_score,
-                 total,
-                 action_length,
-                 hash_skip,
-                 hash_take,
-                 max_skip,
-                 max_take
-        );
 
         max_score
     }
