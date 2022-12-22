@@ -32,8 +32,12 @@ jobs:
         uses: actions/checkout@v3
       - name: Run All Events
         run: mkdir -p target/criterion && cargo run --release --features basic_profiler -- all > target/criterion/results.txt
+        env:
+          RUSTFLAGS: -Ctarget-cpu=native
       - name: Bench
         run: cargo bench
+        env:
+          RUSTFLAGS: -Ctarget-cpu=native
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
