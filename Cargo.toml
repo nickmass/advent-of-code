@@ -19,8 +19,8 @@ name = "main"
 harness = false
 
 [dependencies]
-reqwest = { version = "0.11.7", features = ["blocking"] }
-ahash = "0.7"
+reqwest = { version = "0.11.13", features = ["blocking", "rustls-tls"], default-features = false }
+ahash = "0.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 perf-event = "0.4.7"
