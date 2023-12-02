@@ -5,7 +5,7 @@ pub fn part_one(input: &str) -> String {
 }
 
 pub fn part_two(_input: &str) -> &'static str {
-    "Almost done..."
+    "I did it!!!!"
 }
 
 fn dec_to_snafu(mut input: i64) -> String {

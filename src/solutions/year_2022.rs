@@ -1,4 +1,4 @@
-use crate::{solution, Solution};
+use crate::solutions::SolutionCollection;
 
 mod day_1;
 mod day_2;
@@ -28,32 +28,31 @@ mod day_23;
 mod day_24;
 mod day_25;
 
-pub fn days() -> Vec<Solution> {
-    vec![
-        solution!(1, day_1::part_one, day_1::part_two),
-        solution!(2, day_2::part_one, day_2::part_two),
-        solution!(3, day_3::part_one, day_3::part_two),
-        solution!(4, day_4::part_one, day_4::part_two),
-        solution!(5, day_5::part_one, day_5::part_two),
-        solution!(6, day_6::part_one, day_6::part_two),
-        solution!(7, day_7::part_one, day_7::part_two),
-        solution!(8, day_8::part_one, day_8::part_two),
-        solution!(9, day_9::part_one, day_9::part_two),
-        solution!(10, day_10::part_one, day_10::part_two),
-        solution!(11, day_11::part_one, day_11::part_two),
-        solution!(12, day_12::part_one, day_12::part_two),
-        solution!(13, day_13::part_one, day_13::part_two),
-        solution!(14, day_14::part_one, day_14::part_two),
-        solution!(15, day_15::part_one, day_15::part_two),
-        solution!(16, day_16::part_one, day_16::part_two),
-        solution!(17, day_17::part_one, day_17::part_two),
-        solution!(18, day_18::part_one, day_18::part_two),
-        solution!(19, day_19::part_one, day_19::part_two),
-        solution!(20, day_20::part_one, day_20::part_two),
-        solution!(21, day_21::part_one, day_21::part_two),
-        solution!(22, day_22::part_one, day_22::part_two),
-        solution!(23, day_23::part_one, day_23::part_two),
-        solution!(24, day_24::part_one, day_24::part_two),
-        solution!(25, day_25::part_one, day_25::part_two),
-    ]
+pub fn days() -> SolutionCollection {
+    SolutionCollection::new()
+        .add(1, day_1::part_one, day_1::part_two)
+        .add(2, day_2::part_one, day_2::part_two)
+        .add(3, day_3::part_one, day_3::part_two)
+        .add(4, day_4::part_one, day_4::part_two)
+        .add(5, day_5::part_one, day_5::part_two)
+        .add(6, day_6::part_one, day_6::part_two)
+        .add(7, day_7::part_one, day_7::part_two)
+        .add(8, day_8::part_one, day_8::part_two)
+        .add(9, day_9::part_one, day_9::part_two)
+        .add(10, day_10::part_one, day_10::part_two)
+        .add(11, day_11::part_one, day_11::part_two)
+        .add(12, day_12::part_one, day_12::part_two)
+        .add(13, day_13::part_one, day_13::part_two)
+        .add(14, day_14::part_one, day_14::part_two)
+        .add(15, day_15::part_one, day_15::part_two)
+        .add(16, day_16::part_one, day_16::part_two)
+        .add(17, day_17::part_one, day_17::part_two)
+        .add(18, day_18::part_one, day_18::part_two)
+        .add(19, day_19::part_one, day_19::part_two)
+        .add(20, day_20::part_one, day_20::part_two)
+        .add(21, day_21::part_one, day_21::part_two)
+        .add(22, day_22::part_one, day_22::part_two)
+        .add(23, day_23::part_one, day_23::part_two)
+        .add(24, day_24::part_one, day_24::part_two)
+        .add(25, day_25::part_one, day_25::part_two)
 }
