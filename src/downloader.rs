@@ -21,7 +21,7 @@ impl InputDownloader {
         event: u32,
         day: u32,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let path = std::path::PathBuf::from(format!("input/{}/day{}.txt", event, day));
+        let path = std::path::PathBuf::from(format!("input/year_{}/day_{}.txt", event, day));
         if path.exists() {
             let input = std::fs::read_to_string(&path)?;
             Ok(input)

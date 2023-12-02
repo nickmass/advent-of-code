@@ -25,7 +25,7 @@ pub fn part_one(input: &str) -> u64 {
 
                     *potential_ingredients = union;
                 })
-                .or_insert_with(|| ingredients.iter().map(|s| s.clone()).collect());
+                .or_insert_with(|| ingredients.iter().map(|s| *s).collect());
         }
 
         for ingredient in ingredients {
@@ -70,7 +70,7 @@ pub fn part_two(input: &str) -> String {
 
                     *potential_ingredients = union;
                 })
-                .or_insert_with(|| ingredients.iter().map(|s| s.clone()).collect());
+                .or_insert_with(|| ingredients.iter().map(|s| *s).collect());
         }
     }
 

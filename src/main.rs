@@ -3,7 +3,7 @@ use ahash::AHashMap as HashMap;
 use std::io::Write;
 use std::time::Duration;
 
-use advent::solutions::{self, Solution};
+use advent::solutions::{self, Solution, SolutionCollection};
 
 mod downloader;
 mod profiler;
@@ -11,7 +11,7 @@ mod profiler;
 use downloader::InputDownloader;
 use profiler::{Metrics, Profiler};
 
-const DEFAULT_EVENT: u32 = 2022;
+const DEFAULT_EVENT: u32 = 2023;
 
 enum EventSelection {
     Specific(u32),
@@ -24,6 +24,7 @@ fn main() {
         (2020, solutions::days_2020()),
         (2021, solutions::days_2021()),
         (2022, solutions::days_2022()),
+        (2023, solutions::days_2023()),
     ]
     .into_iter()
     .collect();
@@ -121,15 +122,20 @@ struct Context {
     submission: bool,
 }
 
-fn run_event(ctx: &mut Context, event: u32, days: &[Solution], day_filter: &[u32]) -> Duration {
+fn run_event(
+    ctx: &mut Context,
+    event: u32,
+    days: &SolutionCollection,
+    day_filter: &[u32],
+) -> Duration {
     println!("Advent of Code - {}", event);
     println!();
 
     let mut total_duration = Duration::new(0, 0);
 
     for day in days
-        .iter()
-        .filter(|d| day_filter.is_empty() || day_filter.contains(&d.day))
+        .solutions()
+        .filter(|s| day_filter.is_empty() || day_filter.contains(&s.day))
     {
         total_duration += run_day(ctx, event, day)
     }
