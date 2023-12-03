@@ -19,12 +19,8 @@ pub fn part_one(input: &str) -> i32 {
     let first_segments = LineIter::new(first_line);
     let second_segments: Vec<_> = LineIter::new(second_line).collect();
 
-    let intersections = first_segments.filter_map(|(_, f)| {
-        second_segments
-            .iter()
-            .filter_map(|(_, s)| f.crosses(s))
-            .next()
-    });
+    let intersections =
+        first_segments.filter_map(|(_, f)| second_segments.iter().find_map(|(_, s)| f.crosses(s)));
 
     intersections.map(|p| p.distance()).min().unwrap_or(0)
 }
@@ -96,9 +92,9 @@ impl Line {
         match (self, other) {
             (Line::EastWest(ew), Line::NorthSouth(ns))
             | (Line::NorthSouth(ns), Line::EastWest(ew)) => {
-                if ew.start.y >= ns.start.y
+                if ew.start.y > ns.start.y
                     && ew.start.y <= ns.end.y
-                    && ns.start.x >= ew.start.x
+                    && ns.start.x > ew.start.x
                     && ns.start.x <= ew.end.x
                 {
                     Some(Point {
@@ -228,4 +224,21 @@ impl Point {
     pub fn distance_to(&self, other: &Point) -> i32 {
         (self.x - other.x).abs() + (self.y - other.y).abs()
     }
+}
+
+#[test]
+fn test() {
+    let input = r#"R75,D30,R83,U83,L12,D49,R71,U7,L72
+U62,R66,U55,R34,D71,R55,D58,R83
+"#;
+
+    assert_eq!(159, part_one(input));
+    assert_eq!(610, part_two(input));
+
+    let input = r#"R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51
+U98,R91,D20,R16,D67,R40,U7,R15,U6,R7
+"#;
+
+    assert_eq!(135, part_one(input));
+    assert_eq!(410, part_two(input));
 }

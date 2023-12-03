@@ -1,6 +1,8 @@
 pub fn part_one(input: &str) -> usize {
-    const WIDTH: usize = 25;
-    const HEIGHT: usize = 6;
+    solve_part_one::<25, 6>(input)
+}
+
+pub fn solve_part_one<const WIDTH: usize, const HEIGHT: usize>(input: &str) -> usize {
     let layers = input.trim().as_bytes().chunks(WIDTH * HEIGHT);
 
     let mut result = (std::usize::MAX, 0);
@@ -11,10 +13,15 @@ pub fn part_one(input: &str) -> usize {
             .iter()
             .map(|p| p - 48)
             .map(usize::from)
+            .filter(|&n| n < 3)
             .for_each(|i| counts[i] += 1);
 
-        if counts[0] < result.0 {
-            result = (counts[0], counts[1] * counts[2]);
+        let zeros = counts.get(0).copied().unwrap_or(0);
+        if zeros < result.0 {
+            let ones = counts.get(1).copied().unwrap_or(0);
+            let twos = counts.get(2).copied().unwrap_or(0);
+
+            result = (zeros, ones * twos);
         }
     }
 
@@ -22,8 +29,10 @@ pub fn part_one(input: &str) -> usize {
 }
 
 pub fn part_two(input: &str) -> String {
-    const WIDTH: usize = 25;
-    const HEIGHT: usize = 6;
+    solve_part_two::<25, 6>(input)
+}
+
+pub fn solve_part_two<const WIDTH: usize, const HEIGHT: usize>(input: &str) -> String {
     let layers = input.trim().as_bytes().chunks(WIDTH * HEIGHT).rev();
 
     let mut canvas = vec![false; WIDTH * HEIGHT];
@@ -38,7 +47,7 @@ pub fn part_two(input: &str) -> String {
         }
     }
 
-    let mut image = String::from("\n");
+    let mut image = String::new();
     for row in canvas.chunks(WIDTH) {
         for &pixel in row {
             image.push_str(if pixel { "##" } else { "  " });
@@ -47,4 +56,14 @@ pub fn part_two(input: &str) -> String {
     }
 
     image
+}
+
+#[test]
+fn test() {
+    let input = r#"123456789012"#;
+
+    assert_eq!(1, solve_part_one::<3, 2>(input));
+
+    let input = "0222112222120000";
+    assert_eq!("  ##\n##  \n", solve_part_two::<2, 2>(input));
 }

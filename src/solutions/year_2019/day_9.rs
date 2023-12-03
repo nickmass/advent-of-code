@@ -27,3 +27,10 @@ pub fn part_two(input: &str) -> i64 {
 
     result
 }
+
+#[test]
+fn test() {
+    let input = r#"104,1125899906842624,99"#;
+
+    assert_eq!(1125899906842624, part_one(input));
+}

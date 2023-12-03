@@ -74,3 +74,17 @@ pub fn part_two(input: &str) -> u64 {
 
     horizontal * depth
 }
+
+#[test]
+fn test() {
+    let input = r#"forward 5
+down 5
+forward 8
+up 3
+down 8
+forward 2
+"#;
+
+    assert_eq!(150, part_one(input));
+    assert_eq!(900, part_two(input));
+}

@@ -1,6 +1,9 @@
 use super::{Gcd, Point3};
-
 pub fn part_one(input: &str) -> i64 {
+    solve_part_one::<1000>(input)
+}
+
+pub fn solve_part_one<const N: usize>(input: &str) -> i64 {
     let mut points: Vec<_> = input
         .trim()
         .split('\n')
@@ -20,7 +23,7 @@ pub fn part_one(input: &str) -> i64 {
         .collect();
 
     let mut velo: Vec<_> = (0..points.len()).map(|_| Point3::new(0, 0, 0)).collect();
-    for _ in 0..1000 {
+    for _ in 0..N {
         for (i, (&p, vel)) in points.iter().zip(velo.iter_mut()).enumerate() {
             for (j, pp) in points.iter().enumerate() {
                 if i == j {
@@ -126,4 +129,16 @@ fn sequence_length(initial_points: &[i64]) -> usize {
     }
 
     count * 2
+}
+
+#[test]
+fn test() {
+    let input = r#"<x=-8, y=-10, z=0>
+<x=5, y=5, z=10>
+<x=2, y=-7, z=3>
+<x=9, y=-8, z=-3>
+"#;
+
+    assert_eq!(1940, solve_part_one::<100>(input));
+    assert_eq!(4686774924, part_two(input));
 }

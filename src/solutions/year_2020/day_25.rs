@@ -32,3 +32,11 @@ pub fn part_one(input: &str) -> u64 {
 pub fn part_two(_input: &str) -> &'static str {
     "I did it!!!!"
 }
+
+#[test]
+fn test() {
+    let input = r#"5764801
+17807724"#;
+
+    assert_eq!(14897079, part_one(input));
+}

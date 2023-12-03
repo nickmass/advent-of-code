@@ -72,3 +72,14 @@ pub fn part_two(input: &str) -> u64 {
 
     valid
 }
+
+#[test]
+fn test() {
+    let input = r#"1-3 a: abcde
+1-3 b: cdefg
+2-9 c: ccccccccc
+"#;
+
+    assert_eq!(2, part_one(input));
+    assert_eq!(1, part_two(input));
+}
