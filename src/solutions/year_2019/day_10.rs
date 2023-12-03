@@ -167,6 +167,7 @@ fn create_angle_grid(width: i32, height: i32) -> Vec<(Point2<i32>, f32)> {
     corners
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct DayTenResult {
     max_roids: usize,
     target: Point2<i32>,
@@ -176,4 +177,36 @@ impl std::fmt::Display for DayTenResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.max_roids)
     }
+}
+
+#[test]
+fn test() {
+    let input = r#".#..##.###...#######
+##.############..##.
+.#.######.########.#
+.###.#######.####.#.
+#####.##.#.##.###.##
+..#####..#.#########
+####################
+#.####....###.#.#.##
+##.#################
+#####.##.###..####..
+..######..##.#######
+####.##.####...##..#
+.#####..#.######.###
+##...#.##########...
+#.##########.#######
+.####.#.###.###.#.##
+....##.##.###..#####
+.#.#.###########.###
+#.#.#.#####.####.###
+###.##.####.##.#..##
+"#;
+
+    let result = DayTenResult {
+        max_roids: 210,
+        target: Point2::new(11, 13),
+    };
+    assert_eq!(result, part_one(input));
+    assert_eq!(802, part_two(input));
 }

@@ -38,3 +38,17 @@ pub fn part_two(input: &str) -> u64 {
 
     0
 }
+
+#[test]
+fn test() {
+    let input = r#"1721
+979
+366
+299
+675
+1456
+"#;
+
+    assert_eq!(514579, part_one(input));
+    assert_eq!(241861950, part_two(input));
+}

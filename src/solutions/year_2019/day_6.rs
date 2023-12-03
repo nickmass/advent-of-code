@@ -118,3 +118,38 @@ enum Orbit {
     Root,
     Child(usize),
 }
+
+#[test]
+fn test() {
+    let input = r#"COM)BBB
+BBB)CCC
+CCC)DDD
+DDD)EEE
+EEE)FFF
+BBB)GGG
+GGG)HHH
+DDD)III
+EEE)JJJ
+JJJ)KKK
+KKK)LLL
+"#;
+
+    assert_eq!(42, part_one(input));
+
+    let input = r#"COM)BBB
+BBB)CCC
+CCC)DDD
+DDD)EEE
+EEE)FFF
+BBB)GGG
+GGG)HHH
+DDD)III
+EEE)JJJ
+JJJ)KKK
+KKK)LLL
+KKK)YOU
+III)SAN
+"#;
+
+    assert_eq!(4, part_two(input));
+}

@@ -103,3 +103,20 @@ enum Instruction {
     Acc(i64),
     Jmp(i64),
 }
+
+#[test]
+fn test() {
+    let input = r#"nop +0
+acc +1
+jmp +4
+acc +3
+jmp -3
+acc -99
+acc +1
+jmp -4
+acc +6
+"#;
+
+    assert_eq!(5, part_one(input));
+    assert_eq!(8, part_two(input));
+}

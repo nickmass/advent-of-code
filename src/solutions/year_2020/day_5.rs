@@ -62,3 +62,14 @@ pub fn part_two(input: &str) -> u64 {
 
     0
 }
+
+#[test]
+fn test() {
+    let input = r#"FBFBBFFRLR
+BBFFBBFRLL
+BFFFBBFRRR
+FFFBBBFRRR
+"#;
+
+    assert_eq!(820, part_one(input));
+}

@@ -82,3 +82,26 @@ pub fn part_two(input: &str) -> usize {
 
     matches.len()
 }
+
+#[test]
+fn test() {
+    let inputs = [
+        ("111111-111112", 1),
+        ("223450-223451", 0),
+        ("123789-123790", 0),
+    ];
+
+    for (input, result) in inputs {
+        assert_eq!(result, part_one(input));
+    }
+
+    let inputs = [
+        ("112233-112234", 1),
+        ("123444-123445", 0),
+        ("111122-111123", 1),
+    ];
+
+    for (input, result) in inputs {
+        assert_eq!(result, part_two(input));
+    }
+}

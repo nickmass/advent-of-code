@@ -26,3 +26,11 @@ pub fn part_two(input: &str) -> i32 {
         })
         .sum::<i32>()
 }
+
+#[test]
+fn test() {
+    let input = r#"100756"#;
+
+    assert_eq!(33583, part_one(input));
+    assert_eq!(50346, part_two(input));
+}

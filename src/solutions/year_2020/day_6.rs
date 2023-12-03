@@ -36,3 +36,26 @@ pub fn part_two(input: &str) -> u64 {
 
     questions as u64
 }
+
+#[test]
+fn test() {
+    let input = r#"abc
+
+a
+b
+c
+
+ab
+ac
+
+a
+a
+a
+a
+
+b
+"#;
+
+    assert_eq!(11, part_one(input));
+    assert_eq!(6, part_two(input));
+}
