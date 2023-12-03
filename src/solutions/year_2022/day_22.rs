@@ -98,7 +98,15 @@ impl<'a, M: Map> Player<'a, M> {
             Movement::Rotate(r) => self.facing = self.facing.rotate(r),
             Movement::Move(n) => {
                 for _ in 0..n {
-                    self.position = self.map.make_move(self.facing, self.position);
+                    match self.map.make_move(self.facing, self.position) {
+                        MoveResult::Blocked(p) => {
+                            self.position = p;
+                            break;
+                        }
+                        MoveResult::Clear(p) => {
+                            self.position = p;
+                        }
+                    }
                 }
             }
         }
@@ -123,10 +131,15 @@ impl<'a, M: Map> Player<'a, M> {
 trait Map {
     type Position: Copy;
 
-    fn make_move(&self, facing: Facing, position: Self::Position) -> Self::Position;
+    fn make_move(&self, facing: Facing, position: Self::Position) -> MoveResult<Self::Position>;
     fn normalize(&self, facing: Facing, position: Self::Position) -> (Facing, (usize, usize));
     fn start(&self) -> Self::Position;
     fn dump(&self) {}
+}
+
+enum MoveResult<T> {
+    Blocked(T),
+    Clear(T),
 }
 
 struct FlatMap {
@@ -196,16 +209,16 @@ impl Map for FlatMap {
         self.start
     }
 
-    fn make_move(&self, facing: Facing, position: (isize, isize)) -> (isize, isize) {
+    fn make_move(&self, facing: Facing, position: (isize, isize)) -> MoveResult<(isize, isize)> {
         let mut next_position = position;
         loop {
             next_position = facing.adjust(next_position);
             match self.get(next_position) {
                 Cell::Open => {
-                    return next_position;
+                    return MoveResult::Clear(next_position);
                 }
                 Cell::Wall => {
-                    return position;
+                    return MoveResult::Blocked(position);
                 }
                 Cell::Void => {}
             }
@@ -558,15 +571,15 @@ impl<const N: usize> CubeMap<N> {
 impl<const N: usize> Map for CubeMap<N> {
     type Position = CubePosition;
 
-    fn make_move(&self, facing: Facing, position: Self::Position) -> Self::Position {
+    fn make_move(&self, facing: Facing, position: Self::Position) -> MoveResult<Self::Position> {
         let (norm_facing, norm) = self.normalize(facing, position);
         self.visited.borrow_mut().insert(norm, norm_facing);
 
         let next_position = self.step(facing, position);
 
         match self.get(next_position) {
-            Cell::Open => return next_position,
-            Cell::Wall => return position,
+            Cell::Open => return MoveResult::Clear(next_position),
+            Cell::Wall => return MoveResult::Blocked(position),
             Cell::Void => unreachable!(),
         }
     }
