@@ -9,7 +9,7 @@ mod downloader;
 mod profiler;
 
 use downloader::InputDownloader;
-use profiler::{Metrics, Profiler};
+pub use profiler::{Metrics, Profiler};
 
 const DEFAULT_EVENT: u32 = 2023;
 
