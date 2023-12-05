@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use super::Point2;
 use crate::{HashMap, HashSet};
 use std::collections::BinaryHeap;
@@ -13,7 +12,6 @@ pub fn part_one(input: &str) -> u32 {
 
 pub fn part_two(input: &str) -> u32 {
     let map = Map::<4>::new(input);
-    // map.dump();
     let graph = Graph::new(&map);
     graph.route()
 }
@@ -53,17 +51,19 @@ impl Key {
     }
 }
 
-type Keyring = AKeyring;
-
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-struct AKeyring(u32);
-impl AKeyring {
+struct Keyring(u32, bool);
+impl Keyring {
     fn empty() -> Self {
-        Self(0)
+        Self(0, false)
+    }
+
+    fn master() -> Self {
+        Self(0, true)
     }
 
     fn unlocks(&self, door: Door) -> bool {
-        self.0 | door.0 == self.0
+        self.0 | door.0 == self.0 || self.1
     }
 
     fn add(&mut self, key: Key) {
@@ -74,57 +74,14 @@ impl AKeyring {
         self.0 | key.0 == self.0
     }
 
+    fn overlaps(&self, other: Keyring) -> bool {
+        self.0 | other.0 == self.0
+    }
+
     fn count(&self) -> u32 {
         self.0.count_ones()
     }
-
-    fn dump(&self) {}
 }
-
-#[derive(Debug, Clone)]
-struct BKeyring(AKeyring, Vec<Key>);
-impl BKeyring {
-    fn empty() -> Self {
-        Self(AKeyring::empty(), Vec::new())
-    }
-
-    fn unlocks(&self, door: Door) -> bool {
-        self.0.unlocks(door)
-    }
-
-    fn add(&mut self, key: Key) {
-        self.1.push(key);
-        self.0.add(key)
-    }
-
-    fn contains(&self, key: Key) -> bool {
-        self.0.contains(key)
-    }
-
-    fn count(&self) -> u32 {
-        self.0.count()
-    }
-
-    fn dump(&self) {
-        for k in self.1.iter() {
-            println!("{}", (k.0.trailing_zeros() as u8 + b'a') as char)
-        }
-    }
-}
-
-impl std::hash::Hash for BKeyring {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
-impl std::cmp::PartialEq for BKeyring {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl std::cmp::Eq for BKeyring {}
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 enum Move {
@@ -272,17 +229,17 @@ impl<const STARTS: usize> Map<STARTS> {
         let mut visited = HashSet::new();
         let mut haystack = BinaryHeap::new();
 
-        haystack.push(SearchPath(Move::Point(start), 0));
+        haystack.push(Ordered(0, Move::Point(start)));
 
         std::iter::from_fn(move || {
-            while let Some(SearchPath(next, count)) = haystack.pop() {
+            while let Some(Ordered(count, next)) = haystack.pop() {
                 let p = next.point();
                 visited.insert(next.point());
 
                 if !matches!(next, Move::Door(_, _)) {
                     haystack.extend(self.moves(p).filter_map(|m| {
                         if !visited.contains(&m.point()) {
-                            Some(SearchPath(m, count + 1))
+                            Some(Ordered(count + 1, m))
                         } else {
                             None
                         }
@@ -300,6 +257,7 @@ impl<const STARTS: usize> Map<STARTS> {
         })
     }
 
+    #[allow(dead_code)]
     fn dump(&self) {
         for y in 0..self.height {
             for x in 0..self.width {
@@ -316,21 +274,6 @@ impl<const STARTS: usize> Map<STARTS> {
     }
 }
 
-#[derive(PartialEq, Eq)]
-struct SearchPath(Move, u32);
-
-impl std::cmp::PartialOrd for SearchPath {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.1.partial_cmp(&self.1)
-    }
-}
-
-impl std::cmp::Ord for SearchPath {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.1.cmp(&self.1)
-    }
-}
-
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 struct NodeId(usize);
 
@@ -341,7 +284,7 @@ struct EdgeId(usize);
 enum Node {
     Door(Door),
     Key(Key),
-    Start(usize),
+    Start(u8),
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -367,7 +310,7 @@ impl<const STARTS: usize> Graph<STARTS> {
         let mut edges = Vec::new();
 
         for i in 0..STARTS {
-            let start = Node::Start(i);
+            let start = Node::Start(i as u8);
             let start_id = NodeId(nodes.len());
             nodes.push(start);
             node_map.insert(start, start_id);
@@ -391,7 +334,7 @@ impl<const STARTS: usize> Graph<STARTS> {
             let p = match node {
                 Node::Door(d) => map.doors.get(d).unwrap(),
                 Node::Key(k) => map.keys.get(k).unwrap(),
-                Node::Start(i) => &map.starts[*i],
+                Node::Start(i) => &map.starts[*i as usize],
             };
 
             let left_node_id = node_map.get(&node).unwrap();
@@ -470,49 +413,136 @@ impl<const STARTS: usize> Graph<STARTS> {
         })
     }
 
+    fn virtual_edges<'a>(
+        &'a self,
+        node: Node,
+        keyring: Keyring,
+        visited: &'a mut HashSet<Node>,
+        haystack: &'a mut BinaryHeap<Ordered<Edge>>,
+    ) -> impl Iterator<Item = Edge> + 'a {
+        visited.clear();
+        haystack.clear();
+        haystack.extend(
+            self.unlocked_edges(node, keyring)
+                .map(|e| Ordered(e.cost, e)),
+        );
+
+        std::iter::from_fn(move || {
+            while let Some(Ordered(cost, next)) = haystack.pop() {
+                let node = self.nodes[next.right.0];
+
+                if !visited.insert(node) {
+                    continue;
+                }
+
+                haystack.extend(self.unlocked_edges(node, keyring).filter_map(|edge| {
+                    let right_node = self.nodes[edge.right.0];
+                    if !visited.contains(&right_node) {
+                        Some(Ordered(cost + edge.cost, edge))
+                    } else {
+                        None
+                    }
+                }));
+
+                if let Node::Key(_) = node {
+                    let mut next = next;
+                    next.cost = cost;
+                    return Some(next);
+                }
+            }
+
+            None
+        })
+    }
+
+    fn reachable_keys(
+        &self,
+        start: Node,
+        visited: &mut HashSet<Node>,
+        haystack: &mut BinaryHeap<Ordered<Edge>>,
+    ) -> Keyring {
+        self.virtual_edges(start, Keyring::master(), visited, haystack)
+            .filter_map(|e| {
+                let node = self.nodes[e.right.0];
+                if let Node::Key(k) = node {
+                    Some(k)
+                } else {
+                    None
+                }
+            })
+            .fold(Keyring::empty(), |mut keyring, key| {
+                keyring.add(key);
+                keyring
+            })
+    }
+
     fn route(&self) -> u32 {
         let positions = SearchPositions::<STARTS>::new();
+        let mut scratch_set = HashSet::new();
+        let mut scratch_heap = BinaryHeap::new();
+        let reachable_keys = positions
+            .0
+            .iter()
+            .map(|p| self.reachable_keys(*p, &mut scratch_set, &mut scratch_heap))
+            .collect::<Vec<_>>();
+
         let keyring = Keyring::empty();
         let mut visited = HashSet::new();
-
         let mut haystack = BinaryHeap::new();
 
-        haystack.push(SearchNode(positions, None, keyring, 0));
+        haystack.push(Ordered(0, (positions, None, keyring)));
 
-        while let Some(SearchNode(positions, robot_idx, mut keyring, cost)) = haystack.pop() {
+        while let Some(Ordered(cost, (positions, robot_idx, mut keyring))) = haystack.pop() {
             if let Some(robot_idx) = robot_idx {
-                if !visited.insert((robot_idx, positions.0[robot_idx], keyring.clone())) {
+                if !visited.insert((positions, keyring)) {
                     continue;
                 }
 
                 if let Node::Key(k) = positions.0[robot_idx] {
                     keyring.add(k);
 
-                    if keyring.count() == self.key_count as u32 {
-                        keyring.dump();
-                        //println!("{}", cost);
+                    if keyring.count() == self.key_count {
                         return cost;
                     }
                 }
             }
 
             for (idx, &robot) in positions.0.iter().enumerate() {
-                haystack.extend(self.unlocked_edges(robot, keyring.clone()).filter_map(|e| {
-                    let right_node = self.nodes[e.right.0];
+                if keyring.overlaps(reachable_keys[idx]) {
+                    continue;
+                }
 
-                    if visited.contains(&(idx, right_node, keyring.clone())) {
-                        None
-                    } else {
-                        let cost = cost + e.cost;
-                        let mut positions = positions;
-                        positions.0[idx] = right_node;
-                        Some(SearchNode(positions, Some(idx), keyring.clone(), cost))
-                    }
-                }));
+                haystack.extend(
+                    self.virtual_edges(robot, keyring, &mut scratch_set, &mut scratch_heap)
+                        .filter_map(|e| {
+                            let right_node = self.nodes[e.right.0];
+                            let mut positions = positions;
+                            positions.0[idx] = right_node;
+
+                            if visited.contains(&(positions, keyring)) {
+                                None
+                            } else {
+                                Some(Ordered(cost + e.cost, (positions, Some(idx), keyring)))
+                            }
+                        }),
+                );
             }
         }
 
         0
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct Ordered<T>(u32, T);
+impl<T: Eq> std::cmp::PartialOrd for Ordered<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        other.0.partial_cmp(&self.0)
+    }
+}
+impl<T: Eq> std::cmp::Ord for Ordered<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.0.cmp(&self.0)
     }
 }
 
@@ -523,23 +553,10 @@ impl<const N: usize> SearchPositions<N> {
     fn new() -> Self {
         let mut positions = [Node::Start(0); N];
         for i in 0..N {
-            positions[i] = Node::Start(i);
+            positions[i] = Node::Start(i as u8);
         }
 
         Self(positions)
-    }
-}
-
-#[derive(PartialEq, Eq)]
-struct SearchNode<const N: usize>(SearchPositions<N>, Option<usize>, Keyring, u32);
-impl<const N: usize> std::cmp::PartialOrd for SearchNode<N> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.3.partial_cmp(&self.3)
-    }
-}
-impl<const N: usize> std::cmp::Ord for SearchNode<N> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.3.cmp(&self.3)
     }
 }
 
@@ -600,11 +617,7 @@ fn test() {
 #fEbA.#.FgHi#
 #############"#;
     assert_eq!(32, part_two(input));
-}
 
-#[test]
-#[ignore = "failing edge case"]
-fn bad_case() {
     let input = r#"#############
 #g#f.D#..h#l#
 #F###e#E###.#
@@ -614,6 +627,5 @@ fn bad_case() {
 #M###N#H###.#
 #o#m..#i#jk.#
 #############"#;
-    //Fails ??
     assert_eq!(72, part_two(input));
 }
