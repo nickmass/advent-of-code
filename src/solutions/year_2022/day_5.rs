@@ -60,11 +60,12 @@ impl Stacks {
 
     fn perform_move(&mut self, move_crate: Move) {
         let Some((src, dst)) = self
-                .names
-                .get(&move_crate.source)
-            .zip(self.names.get(&move_crate.destination)) else {
-                return;
-            };
+            .names
+            .get(&move_crate.source)
+            .zip(self.names.get(&move_crate.destination))
+        else {
+            return;
+        };
 
         for _ in 0..move_crate.count {
             let piece = self.stacks.get_mut(src).unwrap().pop_back().unwrap();
@@ -75,11 +76,12 @@ impl Stacks {
 
     fn perform_upgraded_move(&mut self, move_crate: Move) {
         let Some((src, dst)) = self
-                .names
-                .get(&move_crate.source)
-            .zip(self.names.get(&move_crate.destination)) else {
-                return;
-            };
+            .names
+            .get(&move_crate.source)
+            .zip(self.names.get(&move_crate.destination))
+        else {
+            return;
+        };
 
         let mut tmp = VecDeque::with_capacity(move_crate.count);
 

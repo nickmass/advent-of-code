@@ -23,6 +23,8 @@ mod day_17;
 mod day_18;
 mod day_19;
 
+mod day_20;
+
 pub fn days() -> SolutionCollection {
     SolutionCollection::new()
         .add(1, day_1::part_one, day_1::part_two)
@@ -44,6 +46,7 @@ pub fn days() -> SolutionCollection {
         .add(17, day_17::part_one, day_17::part_two)
         .add(18, day_18::part_one, day_18::part_two)
         .add(19, day_19::part_one, day_19::part_two)
+        .add(20, day_20::part_one, day_20::part_two)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
