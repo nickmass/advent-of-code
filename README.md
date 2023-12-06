@@ -1,6 +1,6 @@
 # Advent of Code
 
-My playground for messy advent of code solutions
+A collection of [Advent of Code](https://adventofcode.com) solutions written in Rust. The complete output of the program with my inputs may be viewed [here](https://nickmass.github.io/advent-of-code/results.txt).
 
 ## Usage
 
