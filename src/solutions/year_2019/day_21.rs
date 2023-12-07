@@ -2,18 +2,25 @@ use super::intcode::{Interrupt, Machine, VecMem};
 use std::iter::once;
 
 macro_rules! springcode {
-    (RUN $($op:ident $r_reg:ident $w_reg:ident)*) => { springcode!(__BUILD, $(springcode!(__OP, $op)(RunReg::$r_reg, WriteReg::$w_reg)),*) };
-    (WALK $($op:ident $r_reg:ident $w_reg:ident)*) => { springcode!(__BUILD, $(springcode!(__OP, $op)(WalkReg::$r_reg, WriteReg::$w_reg)),*) };
-    (__BUILD, $($code:expr),*) => {{ let p = [$($code),*]; assert!(p.len() <= 15); p }};
-    (__OP, AND) => {Opcode::And};
-    (__OP, OR) => {Opcode::Or};
-    (__OP, NOT) => {Opcode::Not};
-    (__OP, $other:expr) => {compile_error!("Expected one of 'AND', 'OR', or 'NOT'")};
-    ($other:ident $($op:ident $r_reg:ident $w_reg:ident)*) => {compile_error!("Programs must begin with 'WALK' or 'RUN'")};
+    (RUN $($token:ident)*) => { springcode!(@build, RunReg, $($token)*) };
+    (WALK $($token:ident)*) => { springcode!(@build, WalkReg, $($token)*) };
+    (@build, $kind:ident, $($op:ident $r_reg:ident $w_reg:ident)*) =>
+    {{
+        const P: &[Opcode<$kind>] = &[$(springcode!(@op, $op)($kind::$r_reg, WriteReg::$w_reg)),*];
+        const _: () = if P.len() > 15 {
+            panic!("exceeded 15 instructions")
+        };
+        P
+    } };
+    (@op, AND) => {Opcode::And};
+    (@op, OR) => {Opcode::Or};
+    (@op, NOT) => {Opcode::Not};
+    (@op, $other:expr) => {compile_error!("expected one of 'AND', 'OR', or 'NOT'")};
+    ($other:ident $($op:ident $r_reg:ident $w_reg:ident)*) => {compile_error!("must begin with 'WALK' or 'RUN'")};
 }
 
 pub fn part_one(input: &str) -> i32 {
-    let mut machine = Machine::new(input);
+    let mut machine = SpringcodeMachine::new(input);
 
     let program = springcode! {
             WALK
@@ -26,11 +33,11 @@ pub fn part_one(input: &str) -> i32 {
             AND T J
     };
 
-    run_springcode(&mut machine, program, false).unwrap_or(0)
+    machine.run(program).unwrap_or(0)
 }
 
 pub fn part_two(input: &str) -> i32 {
-    let mut machine = Machine::new(input);
+    let mut machine = SpringcodeMachine::new(input);
 
     let program = springcode! {
             RUN
@@ -46,53 +53,74 @@ pub fn part_two(input: &str) -> i32 {
             OR H T
             OR E T
             AND T J
+            NOT A T
     };
 
-    run_springcode(&mut machine, program, false).unwrap_or(0)
+    machine.run(program).unwrap_or(0)
 }
 
-fn run_springcode<I: IntoIterator<Item = Opcode<P>>, P: ProgMode>(
-    machine: &mut Machine<i32, VecMem<i32>>,
-    program: I,
-    debug: bool,
-) -> Option<i32> {
-    loop {
-        match machine.run() {
-            Interrupt::Output(c) if debug => print!("{}", c as u8 as char),
-            Interrupt::Output(_) => (),
-            Interrupt::Input => break,
-            i => unreachable!("{i:?}"),
+struct SpringcodeMachine<const DEBUG: bool> {
+    machine: Machine<i32, VecMem<i32>>,
+}
+
+impl SpringcodeMachine<false> {
+    fn new(firmware: &str) -> Self {
+        Self {
+            machine: Machine::new(firmware),
+        }
+    }
+}
+
+impl<const DEBUG: bool> SpringcodeMachine<DEBUG> {
+    #[allow(dead_code)]
+    fn with_debug(firmware: &str) -> Self {
+        Self {
+            machine: Machine::new(firmware),
         }
     }
 
-    for c in program
-        .into_iter()
-        .map(|op| op.bytes())
-        .flatten()
-        .chain(P::EXEC.iter().copied())
-        .chain(once(b'\n'))
-    {
-        let c = c as i32;
-        machine.set_input(c);
-        match machine.run() {
-            Interrupt::Output(c) if debug => print!("{}", c as u8 as char),
-            Interrupt::Output(_) => (),
-            Interrupt::Input => (),
-            i => unreachable!("{i:?}"),
+    fn run<'a, I: IntoIterator<Item = &'a Opcode<P>>, P: ProgMode + 'a>(
+        &mut self,
+        program: I,
+    ) -> Option<i32> {
+        self.machine.reset();
+        loop {
+            match self.machine.run() {
+                Interrupt::Output(c) if DEBUG => print!("{}", c as u8 as char),
+                Interrupt::Output(_) => (),
+                Interrupt::Input => break,
+                i => unreachable!("{i:?}"),
+            }
         }
-    }
 
-    loop {
-        match machine.run() {
-            Interrupt::Output(n) if n > 0x7f => return Some(n),
-            Interrupt::Output(c) if debug => print!("{}", c as u8 as char),
-            Interrupt::Output(_) => (),
-            Interrupt::Halt => break,
-            i => unreachable!("{i:?}"),
+        for c in program
+            .into_iter()
+            .map(|op| op.bytes())
+            .flatten()
+            .chain(P::EXEC.iter().copied())
+            .chain(once(b'\n'))
+        {
+            self.machine.set_input(c as i32);
+            match self.machine.run() {
+                Interrupt::Output(c) if DEBUG => print!("{}", c as u8 as char),
+                Interrupt::Output(_) => (),
+                Interrupt::Input => (),
+                i => unreachable!("{i:?}"),
+            }
         }
-    }
 
-    None
+        loop {
+            match self.machine.run() {
+                Interrupt::Output(n) if n > 0x7f => return Some(n),
+                Interrupt::Output(c) if DEBUG => print!("{}", c as u8 as char),
+                Interrupt::Output(_) => (),
+                Interrupt::Halt => break,
+                i => unreachable!("{i:?}"),
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -110,12 +138,13 @@ trait ProgMode {
 impl<T: ProgMode> Opcode<T> {
     fn bytes(&self) -> impl Iterator<Item = u8> {
         let (s, r, w) = match self {
-            Opcode::And(r, w) => ("AND ", r, w),
-            Opcode::Or(r, w) => ("OR ", r, w),
-            Opcode::Not(r, w) => ("NOT ", r, w),
+            Opcode::And(r, w) => (&b"AND "[..], r, w),
+            Opcode::Or(r, w) => (&b"OR "[..], r, w),
+            Opcode::Not(r, w) => (&b"NOT "[..], r, w),
         };
 
-        s.bytes()
+        s.iter()
+            .copied()
             .chain(once(r.as_u8()))
             .chain(once(b' '))
             .chain(once(w.as_u8()))
