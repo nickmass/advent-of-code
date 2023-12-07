@@ -17,6 +17,6 @@ $ cargo run --release -- 2022 19 20 21
 # run all years
 $ cargo run --release -- all
 
-# view additioanl options
+# view additional options
 $ cargo run --release -- --help
 ```
