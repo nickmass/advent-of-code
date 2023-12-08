@@ -7,7 +7,7 @@ pub struct InputDownloader {
 
 impl InputDownloader {
     pub fn new() -> Self {
-        let session_key = std::fs::read_to_string("./.session-key").ok();
+        let session_key = std::fs::read_to_string(".session-key").ok();
         let http_client = reqwest::blocking::Client::new();
 
         Self {
@@ -27,7 +27,10 @@ impl InputDownloader {
             Ok(input)
         } else {
             eprintln!("downloading {} day {}.", event, day);
-            let session_key = self.session_key.as_ref().ok_or(".session-key not found")?;
+            let session_key = self
+                .session_key
+                .as_ref()
+                .ok_or("file '.session-key' not found")?;
             let url = format!("https://adventofcode.com/{}/day/{}/input", event, day);
             let res = self
                 .http_client
