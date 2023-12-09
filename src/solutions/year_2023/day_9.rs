@@ -1,73 +1,27 @@
 pub fn part_one(input: &str) -> i64 {
-    let lines = input
-        .trim()
+    input
         .lines()
-        .map(|l| l.split(' ').map(|n| n.parse::<i64>().unwrap()));
-
-    let mut result = 0;
-
-    let mut diffs = Vec::new();
-    for line in lines {
-        diffs.clear();
-        diffs.extend(line);
-
-        let mut n = 0;
-        let mut m = diffs.len();
-
-        loop {
-            let mut prev = None;
-            let mut all_zero = true;
-            for i in n..m {
-                let x = diffs[i];
-                if let Some(prev) = prev {
-                    let diff = x - prev as i64;
-                    diffs.push(diff);
-                    if diff != 0 {
-                        all_zero = false;
-                    }
-                }
-                prev = Some(x)
-            }
-
-            n = m;
-            m = diffs.len();
-
-            if all_zero {
-                break;
-            }
-        }
-
-        let mut last = 0;
-        let mut size = m - n;
-        let mut i = n - 1;
-        loop {
-            last = diffs[i] + last;
-            size += 1;
-
-            if size > i {
-                break;
-            }
-            i -= size;
-        }
-
-        result += last;
-    }
-
-    result
+        .map(|l| OasisDiffTree::new(l))
+        .map(|l| l.rows().fold(0, |acc, row| row.last() + acc))
+        .sum()
 }
 
 pub fn part_two(input: &str) -> i64 {
-    let lines = input
-        .trim()
+    input
         .lines()
-        .map(|l| l.split(' ').map(|n| n.parse::<i64>().unwrap()));
+        .map(|l| OasisDiffTree::new(l))
+        .map(|l| l.rows().fold(0, |acc, row| row.first() - acc))
+        .sum()
+}
 
-    let mut result = 0;
+struct OasisDiffTree {
+    values: Vec<i64>,
+    final_len: usize,
+}
 
-    let mut diffs = Vec::new();
-    for line in lines {
-        diffs.clear();
-        diffs.extend(line);
+impl OasisDiffTree {
+    fn new(line: &str) -> Self {
+        let mut diffs: Vec<_> = line.split(' ').map(|n| n.parse::<i64>().unwrap()).collect();
 
         let mut n = 0;
         let mut m = diffs.len();
@@ -95,25 +49,43 @@ pub fn part_two(input: &str) -> i64 {
             }
         }
 
-        let mut last = 0;
-        let mut size = m - n;
-        let mut i = n - 1 - size;
-        size += 1;
-
-        loop {
-            last = diffs[i] - last;
-            size += 1;
-
-            if size > i {
-                break;
-            }
-            i -= size;
+        Self {
+            values: diffs,
+            final_len: m - n,
         }
-
-        result += last;
     }
 
-    result
+    fn rows<'a>(&'a self) -> impl Iterator<Item = DiffRow<'a>> + 'a {
+        let mut n = self.values.len();
+        let mut next_len = self.final_len;
+
+        std::iter::from_fn(move || {
+            if n == 0 {
+                return None;
+            }
+
+            let m = n;
+            n -= next_len;
+            let res = &self.values[n..m];
+
+            next_len += 1;
+
+            Some(DiffRow(res))
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct DiffRow<'a>(&'a [i64]);
+
+impl<'a> DiffRow<'a> {
+    fn first(&self) -> i64 {
+        self.0[0]
+    }
+
+    fn last(&self) -> i64 {
+        self.0[self.0.len() - 1]
+    }
 }
 
 #[test]
