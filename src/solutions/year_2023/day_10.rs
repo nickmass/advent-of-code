@@ -1,5 +1,4 @@
-use crate::{HashMap, HashSet};
-use std::collections::BinaryHeap;
+use crate::HashSet;
 
 pub fn part_one(input: &str) -> i32 {
     let map = Map::new(input);
@@ -16,7 +15,6 @@ struct Map {
     width: usize,
     height: usize,
     start: (i32, i32),
-    grounds: Vec<(i32, i32)>,
 }
 
 impl Map {
@@ -24,7 +22,6 @@ impl Map {
         let mut height = 0;
         let mut width = 0;
         let mut cells = Vec::new();
-        let mut grounds = Vec::new();
         let mut start = None;
         for l in input.lines() {
             if l.trim().is_empty() {
@@ -37,10 +34,7 @@ impl Map {
                         start = Some((width as i32, height as i32));
                         Cell::Start
                     }
-                    '.' => {
-                        grounds.push((width as i32, height as i32));
-                        Cell::Ground
-                    }
+                    '.' => Cell::Ground,
                     '|' => Cell::Pipe(Pipe::Vertical),
                     '-' => Cell::Pipe(Pipe::Horizontal),
                     'L' => Cell::Pipe(Pipe::NorthEast),
@@ -64,7 +58,6 @@ impl Map {
             width,
             height,
             start,
-            grounds,
         };
 
         let east = map.get_pipe(start.0 + 1, start.1);
@@ -177,33 +170,41 @@ impl Map {
         })
     }
 
-    fn main_route(&self) -> HashMap<(i32, i32), i32> {
-        let mut visited = HashMap::new();
-        let mut haystack = BinaryHeap::new();
-        haystack.push((0, self.start));
+    fn walk_route(&self) -> impl Iterator<Item = (i32, i32)> + '_ {
+        let mut next = None;
+        let mut last = None;
 
-        while let Some((cost, (x, y))) = haystack.pop() {
-            let entry = visited.entry((x, y)).or_insert(i32::MAX);
-
-            if cost < *entry {
-                *entry = cost;
-
-                haystack.extend(self.neighbors(x, y).map(|p| (cost + 1, p)))
+        std::iter::from_fn(move || {
+            if next == Some(self.start) {
+                return None;
             }
-        }
 
-        visited
+            let current = next.unwrap_or(self.start);
+
+            if let Some(last) = last {
+                let path = self
+                    .neighbors(current.0, current.1)
+                    .find(|p| *p != last)
+                    .unwrap();
+
+                next = Some(path);
+            }
+
+            last = Some(current);
+            last
+        })
     }
 
     fn max_route(&self) -> i32 {
-        self.main_route().into_values().max().unwrap_or(0)
+        let count = self.walk_route().count();
+        count as i32 / 2
     }
 
-    fn clean_clutter(&mut self, route: &HashMap<(i32, i32), i32>) {
+    fn clean_clutter(&mut self, route: &HashSet<(i32, i32)>) {
         for y in 0..self.height {
             for x in 0..self.width {
                 let (x, y) = (x as i32, y as i32);
-                if !route.contains_key(&(x, y)) {
+                if !route.contains(&(x, y)) {
                     self.set(x, y, Cell::Ground);
                 }
             }
@@ -265,12 +266,19 @@ impl Map {
     }
 
     fn count_internal_grounds(&mut self) -> i32 {
-        let route = self.main_route();
+        let route: HashSet<_> = self.walk_route().collect();
         self.clean_clutter(&route);
 
         let mut haystack = Vec::new();
-        let mut visited = HashSet::new();
-        let grounds = self.grounds.iter().map(|(x, y)| (*x * 2, *y * 2));
+        let mut visited = HashSet::with_capacity(self.width * self.height - route.len());
+
+        let grounds = (0..self.height)
+            .flat_map(|y| {
+                (0..self.width)
+                    .map(move |x| (x as i32, y as i32))
+                    .filter(|p| !route.contains(p))
+            })
+            .map(|(x, y)| (x * 2, y * 2));
 
         for next in grounds {
             if visited.contains(&next) {
@@ -281,8 +289,8 @@ impl Map {
             haystack.clear();
             haystack.push((next, InflatedCell::Ground));
 
-            while let Some((next, kind)) = haystack.pop() {
-                if !visited.insert(next) {
+            while let Some(((x, y), kind)) = haystack.pop() {
+                if !visited.insert((x, y)) {
                     continue;
                 }
 
@@ -296,10 +304,11 @@ impl Map {
                             *count += 1;
                         }
                     }
+
                     _ => (),
                 }
 
-                haystack.extend(self.inflated_neighbors(next.0, next.1));
+                haystack.extend(self.inflated_neighbors(x, y));
             }
 
             if let Some(count) = count {
