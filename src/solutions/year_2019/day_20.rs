@@ -144,7 +144,7 @@ impl Map {
             && x < self.width as i32 - EDGE_WIDTH
             && y < self.height as i32 - EDGE_WIDTH
         {
-            NodeClass::Decend
+            NodeClass::Descend
         } else {
             NodeClass::Rise
         }
@@ -170,7 +170,7 @@ impl std::fmt::Display for Node {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 enum NodeClass {
     Rise,
-    Decend,
+    Descend,
     Equal,
 }
 
@@ -337,7 +337,7 @@ impl Graph {
                     NodeClass::Rise if depth == 1 && right_node.start_end() => {
                         Some(RecursiveEdge(edge, 0))
                     }
-                    NodeClass::Decend if !right_node.start_end() => {
+                    NodeClass::Descend if !right_node.start_end() => {
                         Some(RecursiveEdge(edge, depth + 1))
                     }
                     NodeClass::Equal => Some(RecursiveEdge(edge, depth)),
