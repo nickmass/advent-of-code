@@ -14,7 +14,7 @@ fn do_bench(c: &mut Criterion, year: u32, days: SolutionCollection) {
     let mut group = c.benchmark_group(format!("{}", year));
     for day in days.solutions() {
         let input =
-            std::fs::read_to_string(format!("input/year_{}/day_{}.txt", year, day.day)).unwrap();
+            std::fs::read_to_string(format!("input/year_{}/day_{:02}.txt", year, day.day)).unwrap();
         let name_one = format!("{:02}-{}", day.day, 1);
         let name_two = format!("{:02}-{}", day.day, 2);
         group.bench_function(&name_one, |b| b.iter(|| (day.part_one)(&input)));
