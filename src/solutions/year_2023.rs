@@ -1,7 +1,6 @@
 use crate::solutions::SolutionCollection;
 
 mod day_1;
-mod day_10;
 mod day_2;
 mod day_3;
 mod day_4;
@@ -10,6 +9,9 @@ mod day_6;
 mod day_7;
 mod day_8;
 mod day_9;
+
+mod day_10;
+mod day_11;
 
 pub fn days() -> SolutionCollection {
     SolutionCollection::new()
@@ -23,4 +25,5 @@ pub fn days() -> SolutionCollection {
         .add(8, day_8::part_one, day_8::part_two)
         .add(9, day_9::part_one, day_9::part_two)
         .add(10, day_10::part_one, day_10::part_two)
+        .add(11, day_11::part_one, day_11::part_two)
 }
