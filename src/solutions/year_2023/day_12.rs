@@ -1,3 +1,5 @@
+use crate::HashMap;
+
 pub fn part_one(input: &str) -> u64 {
     input
         .trim()
@@ -7,13 +9,10 @@ pub fn part_one(input: &str) -> u64 {
 }
 
 pub fn part_two(input: &str) -> u64 {
-    // 1,000,000x too slow, WORK IN PROGRESS
-    // let folds = 5;
-    let folds = 1;
     input
         .trim()
         .lines()
-        .map(|l| ConditionRecord::unfold(l, folds).arrangements())
+        .map(|l| ConditionRecord::unfold(l, 5).arrangements())
         .sum()
 }
 
@@ -99,107 +98,137 @@ impl ConditionRecord {
     }
 
     fn arrangements(&self) -> u64 {
-        //println!("-> {} ", display(&self.record));
-        let mut searcher = Vec::with_capacity(self.record.len());
-        let mut count = 0;
+        let mut starts = vec![StackEntry::from_position(0, 0, 1)];
+        let mut result = 0;
+        for _ in 0..self.pattern.len() {
+            let results = self.paths_to_next_pattern(starts);
 
-        let mut stack = Vec::new();
-        let mut bad_count = 0;
-        let mut pattern_idx = 0;
+            starts = Vec::with_capacity(results.len());
+            result = 0;
+            for (mut entry, count) in results {
+                entry.multiplier = count;
+                starts.push(entry);
+                result += count;
+            }
+        }
+        result as u64
+    }
+
+    fn paths_to_next_pattern(&self, mut stack: Vec<StackEntry>) -> HashMap<StackEntry, u64> {
+        let mut result = HashMap::new();
+
+        let Some(mut entry) = stack.pop() else {
+            return result;
+        };
+
+        let initial_pattern_idx = entry.pattern_idx;
 
         loop {
-            if let Some(next) = self.record.get(searcher.len()) {
+            if let Some(next) = self.record.get(entry.record_idx) {
                 match next {
                     SpringState::Operational => {
                         let mut invalid = false;
-                        if bad_count > 0 {
-                            if let Some(&pattern) = self.pattern.get(pattern_idx) {
-                                invalid |= pattern != bad_count;
+                        if entry.bad_count > 0 {
+                            if let Some(&pattern) = self.pattern.get(entry.pattern_idx) {
+                                invalid |= pattern != entry.bad_count;
                             }
-                            pattern_idx += 1;
-                            if !invalid {}
+                            entry.pattern_idx += 1;
                         }
-                        searcher.push(*next);
-                        bad_count = 0;
-
+                        entry.record_idx += 1;
+                        entry.bad_count = 0;
                         if !invalid {
                             continue;
                         }
                     }
                     SpringState::Damaged => {
-                        bad_count += 1;
-                        searcher.push(*next);
+                        entry.bad_count += 1;
+                        entry.record_idx += 1;
                         continue;
                     }
                     SpringState::Unknown => {
-                        for (option, bad_count, pattern_idx) in
-                            self.options(&searcher, bad_count, pattern_idx)
-                        {
-                            stack.push((option, searcher.len(), bad_count, pattern_idx));
+                        for mut new_entry in self.options(&entry) {
+                            if new_entry.pattern_idx > initial_pattern_idx
+                                && new_entry.pattern_idx < self.pattern.len()
+                            {
+                                new_entry.multiplier = 0;
+                                let result_entry = result.entry(new_entry).or_insert(0);
+                                *result_entry += entry.multiplier;
+                            } else {
+                                stack.push(new_entry);
+                            }
                         }
                     }
                 }
-            } else if self.validate(&searcher, bad_count, pattern_idx) {
-                count += 1;
+            } else if self.validate(entry) {
+                let count = entry.multiplier;
+                entry.multiplier = 0;
+                let result_entry = result.entry(entry).or_insert(0);
+                *result_entry += count;
             }
 
-            if let Some((opt, len, new_bad_count, new_pattern_idx)) = stack.pop() {
-                searcher.truncate(len);
-                searcher.push(opt);
-                bad_count = new_bad_count;
-                pattern_idx = new_pattern_idx;
+            if let Some(next_entry) = stack.pop() {
+                entry = next_entry;
             } else {
                 break;
             }
         }
 
-        count
+        result
     }
 
-    fn options(
-        &self,
-        prefix: &[SpringState],
-        bad_count: u32,
-        pattern_idx: usize,
-    ) -> impl Iterator<Item = (SpringState, u32, usize)> + '_ {
+    fn options(&self, entry: &StackEntry) -> impl Iterator<Item = StackEntry> + '_ {
         let mut allow_bad = true;
         let mut allow_good = true;
 
-        if let Some(&pattern) = self.pattern.get(pattern_idx) {
-            if bad_count == pattern {
+        if let Some(&pattern) = self.pattern.get(entry.pattern_idx) {
+            if entry.bad_count == pattern {
                 allow_bad = false;
-            } else if bad_count > 0 && bad_count < pattern {
+            } else if entry.bad_count > 0 && entry.bad_count < pattern {
                 allow_good = false;
-            } else if bad_count > pattern {
+            } else if entry.bad_count > pattern {
                 allow_bad = false;
                 allow_good = false;
             }
-        } else if bad_count > 0 {
+        } else if entry.bad_count > 0 {
             allow_bad = false;
             allow_good = false;
         } else {
             allow_bad = false;
         }
 
-        let new_idx = if bad_count > 0 {
-            pattern_idx + 1
+        let new_idx = if entry.bad_count > 0 {
+            entry.pattern_idx + 1
         } else {
-            pattern_idx
+            entry.pattern_idx
         };
 
-        if new_idx < self.req_pattern_idx[prefix.len()] {
+        if new_idx < self.req_pattern_idx[entry.record_idx] {
             allow_good = false;
             allow_bad = false;
-        } else if pattern_idx < self.req_pattern_idx[prefix.len()] {
+        } else if entry.pattern_idx < self.req_pattern_idx[entry.record_idx] {
             allow_bad = false;
         }
 
+        let record_idx = entry.record_idx + 1;
+
         [
-            (SpringState::Damaged, bad_count + 1, pattern_idx),
-            (SpringState::Operational, 0, new_idx),
+            StackEntry {
+                record_idx,
+                pattern_idx: entry.pattern_idx,
+                state: SpringState::Damaged,
+                bad_count: entry.bad_count + 1,
+                multiplier: entry.multiplier,
+            },
+            StackEntry {
+                record_idx,
+                pattern_idx: new_idx,
+                state: SpringState::Operational,
+                bad_count: 0,
+                multiplier: entry.multiplier,
+            },
         ]
         .into_iter()
-        .filter(move |(s, _, _)| match s {
+        .filter(move |e| match e.state {
             SpringState::Operational if allow_good => true,
             SpringState::Damaged if allow_bad => true,
             SpringState::Unknown => unreachable!(),
@@ -207,21 +236,42 @@ impl ConditionRecord {
         })
     }
 
-    fn validate(&self, _record: &[SpringState], bad_count: u32, mut pattern_idx: usize) -> bool {
-        if bad_count > 0 {
-            if let Some(&pattern) = self.pattern.get(pattern_idx) {
-                if bad_count != pattern {
+    fn validate(&self, mut entry: StackEntry) -> bool {
+        if entry.bad_count > 0 {
+            if let Some(&pattern) = self.pattern.get(entry.pattern_idx) {
+                if entry.bad_count != pattern {
                     return false;
                 }
             } else {
                 return false;
             }
-            pattern_idx += 1;
+            entry.pattern_idx += 1;
         }
 
-        let result = pattern_idx == self.pattern.len();
+        let result = entry.pattern_idx == self.pattern.len();
 
         result
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct StackEntry {
+    record_idx: usize,
+    pattern_idx: usize,
+    state: SpringState,
+    bad_count: u32,
+    multiplier: u64,
+}
+
+impl StackEntry {
+    fn from_position(record_idx: usize, pattern_idx: usize, multiplier: u64) -> Self {
+        StackEntry {
+            record_idx,
+            pattern_idx,
+            state: SpringState::Operational,
+            bad_count: 0,
+            multiplier,
+        }
     }
 }
 
@@ -244,7 +294,6 @@ fn display(record: &[SpringState]) -> String {
 }
 
 #[test]
-#[ignore = "part 2 incomplete"]
 fn test() {
     let input = r#"???.### 1,1,3
 .??..??...?##. 1,1,3
