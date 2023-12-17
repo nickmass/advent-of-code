@@ -295,7 +295,7 @@ impl<W: Word, M: Memory<W>> Machine<W, M> {
                 self.int_halt = true;
                 Instruction::Halt
             }
-            _ => unreachable!("Unknown opcode: {}", opcode),
+            _ => unreachable!("Unknown opcode: {} pc: {}", opcode, self.program_counter),
         }
     }
 
