@@ -300,7 +300,7 @@ enum Movement {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 enum Orient {
     Zero(Side),
-    Ninty(Side),
+    Ninety(Side),
     OneEighty(Side),
     TwoSeventy(Side),
 }
@@ -309,7 +309,7 @@ impl Orient {
     fn west(&self) -> Orient {
         match self {
             Orient::Zero(s) => s.west(),
-            Orient::Ninty(s) => s.south().rotate(),
+            Orient::Ninety(s) => s.south().rotate(),
             Orient::OneEighty(s) => s.east().rotate().rotate(),
             Orient::TwoSeventy(s) => s.north().rotate().rotate().rotate(),
         }
@@ -318,7 +318,7 @@ impl Orient {
     fn east(&self) -> Orient {
         match self {
             Orient::Zero(s) => s.east(),
-            Orient::Ninty(s) => s.north().rotate(),
+            Orient::Ninety(s) => s.north().rotate(),
             Orient::OneEighty(s) => s.west().rotate().rotate(),
             Orient::TwoSeventy(s) => s.south().rotate().rotate().rotate(),
         }
@@ -327,7 +327,7 @@ impl Orient {
     fn north(&self) -> Orient {
         match self {
             Orient::Zero(s) => s.north(),
-            Orient::Ninty(s) => s.west().rotate(),
+            Orient::Ninety(s) => s.west().rotate(),
             Orient::OneEighty(s) => s.south().rotate().rotate(),
             Orient::TwoSeventy(s) => s.east().rotate().rotate().rotate(),
         }
@@ -336,7 +336,7 @@ impl Orient {
     fn south(&self) -> Orient {
         match self {
             Orient::Zero(s) => s.south(),
-            Orient::Ninty(s) => s.east().rotate(),
+            Orient::Ninety(s) => s.east().rotate(),
             Orient::OneEighty(s) => s.north().rotate().rotate(),
             Orient::TwoSeventy(s) => s.west().rotate().rotate().rotate(),
         }
@@ -344,8 +344,8 @@ impl Orient {
 
     fn rotate(&self) -> Orient {
         match *self {
-            Orient::Zero(s) => Orient::Ninty(s),
-            Orient::Ninty(s) => Orient::OneEighty(s),
+            Orient::Zero(s) => Orient::Ninety(s),
+            Orient::Ninety(s) => Orient::OneEighty(s),
             Orient::OneEighty(s) => Orient::TwoSeventy(s),
             Orient::TwoSeventy(s) => Orient::Zero(s),
         }
@@ -375,7 +375,7 @@ impl Side {
             Side::Yellow => Orient::OneEighty(Side::Red),
             Side::Red => Orient::OneEighty(Side::Yellow),
             Side::Orange => Orient::Zero(Side::White),
-            Side::Green => Orient::Ninty(Side::Red),
+            Side::Green => Orient::Ninety(Side::Red),
             Side::Blue => Orient::TwoSeventy(Side::Red),
         }
     }
@@ -387,7 +387,7 @@ impl Side {
             Side::Red => Orient::Zero(Side::White),
             Side::Orange => Orient::OneEighty(Side::Yellow),
             Side::Green => Orient::TwoSeventy(Side::Orange),
-            Side::Blue => Orient::Ninty(Side::Orange),
+            Side::Blue => Orient::Ninety(Side::Orange),
         }
     }
 
@@ -396,7 +396,7 @@ impl Side {
             Side::White => Orient::Zero(Side::Green),
             Side::Yellow => Orient::Zero(Side::Blue),
             Side::Red => Orient::TwoSeventy(Side::Green),
-            Side::Orange => Orient::Ninty(Side::Green),
+            Side::Orange => Orient::Ninety(Side::Green),
             Side::Green => Orient::Zero(Side::Yellow),
             Side::Blue => Orient::Zero(Side::White),
         }
@@ -406,7 +406,7 @@ impl Side {
         match self {
             Side::White => Orient::Zero(Side::Blue),
             Side::Yellow => Orient::Zero(Side::Green),
-            Side::Red => Orient::Ninty(Side::Blue),
+            Side::Red => Orient::Ninety(Side::Blue),
             Side::Orange => Orient::TwoSeventy(Side::Blue),
             Side::Green => Orient::Zero(Side::White),
             Side::Blue => Orient::Zero(Side::Yellow),
