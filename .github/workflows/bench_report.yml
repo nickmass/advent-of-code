@@ -35,7 +35,7 @@ jobs:
         env:
           RUSTFLAGS: -Ctarget-cpu=native
       - name: Bench
-        run: cargo bench
+        run: cargo bench --bench criterion -- --quick
         env:
           RUSTFLAGS: -Ctarget-cpu=native
       - name: Setup Pages

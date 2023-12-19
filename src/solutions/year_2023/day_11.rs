@@ -1,5 +1,3 @@
-use crate::HashSet;
-
 pub fn part_one(input: &str) -> u64 {
     solve::<2>(input)
 }
@@ -14,30 +12,32 @@ pub fn solve<const N: u64>(input: &str) -> u64 {
 }
 
 struct GalaxyMap {
-    columns: HashSet<usize>,
-    rows: HashSet<usize>,
+    columns: Vec<bool>,
+    rows: Vec<bool>,
     galaxies: Vec<(usize, usize)>,
 }
 
 impl GalaxyMap {
     fn new(input: &str) -> Self {
-        let mut columns = HashSet::new();
-        let mut rows = HashSet::new();
+        let mut columns = Vec::new();
+        let mut rows = Vec::new();
         let mut galaxies = Vec::new();
 
         for (y, line) in input.trim().lines().enumerate() {
             let mut empty_row = true;
-
-            for (x, _) in line.chars().enumerate().filter(|(_, c)| *c == '#') {
-                galaxies.push((x, y));
-
-                empty_row = false;
-                columns.insert(x);
+            if columns.len() < line.len() {
+                columns.resize(line.len(), false);
             }
 
-            if !empty_row {
-                rows.insert(y);
+            for (x, c) in line.chars().enumerate() {
+                if c == '#' {
+                    galaxies.push((x, y));
+                    columns[x] = true;
+                    empty_row = false;
+                }
             }
+
+            rows.push(!empty_row);
         }
 
         Self {
@@ -55,21 +55,15 @@ impl GalaxyMap {
                 let (x1, x2) = if x2 > x1 { (x1, x2) } else { (x2, x1) };
                 let (y1, y2) = if y2 > y1 { (y1, y2) } else { (y2, y1) };
 
-                for x in x1..x2 {
-                    if !self.columns.contains(&x) {
-                        total += MULTIPLIER;
-                    } else {
-                        total += 1;
-                    }
-                }
+                total += self.columns[x1..x2]
+                    .iter()
+                    .map(|&x| if x { 1 } else { MULTIPLIER })
+                    .sum::<u64>();
 
-                for y in y1..y2 {
-                    if !self.rows.contains(&y) {
-                        total += MULTIPLIER;
-                    } else {
-                        total += 1;
-                    }
-                }
+                total += self.rows[y1..y2]
+                    .iter()
+                    .map(|&y| if y { 1 } else { MULTIPLIER })
+                    .sum::<u64>();
             }
         }
 

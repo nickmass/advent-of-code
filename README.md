@@ -1,6 +1,6 @@
 # Advent of Code
 
-A collection of [Advent of Code](https://adventofcode.com) solutions written in Rust. The complete output of the program with my inputs may be viewed [here](https://nickmass.github.io/advent-of-code/results.txt).
+A collection of [Advent of Code](https://adventofcode.com) solutions written in Rust. The complete output of the program with my inputs may be viewed [here](https://nickmass.github.io/advent-of-code/results.txt), more detailed benchmarking can be viewed [here](https://nickmass.github.io/advent-of-code/report/).
 
 ## Usage
 
