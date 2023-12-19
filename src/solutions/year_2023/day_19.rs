@@ -5,18 +5,16 @@ pub fn part_one(input: &str) -> i64 {
 
     let mut score = 0;
 
-    let rule_map = parse_rule_map(rules);
-    let inital_workflow = rule_map.get("in").unwrap();
+    let workflows = WorkflowMap::new(rules);
 
-    'items: for line in items.lines() {
-        let item = parse_item(line);
-        let mut workflow = inital_workflow;
+    'items: for item in items.lines().map(|l| l.parse::<Item>().unwrap()) {
+        let mut workflow = "in";
         loop {
-            for rule in workflow {
+            for rule in workflows.get(workflow) {
                 if let Some(outcome) = rule.apply(&item) {
                     match outcome {
                         Outcome::Forward(w) => {
-                            workflow = rule_map.get(w).unwrap();
+                            workflow = w;
                             break;
                         }
                         Outcome::Accept => {
@@ -37,23 +35,21 @@ pub fn part_one(input: &str) -> i64 {
 
 pub fn part_two(input: &str) -> i64 {
     let (rules, _items) = input.trim().split_once("\n\n").unwrap();
-    let rule_map = parse_rule_map(rules);
-    let inital_workflow = rule_map.get("in").unwrap();
+    let workflows = WorkflowMap::new(rules);
 
     let mut paths = Vec::new();
-    paths.push((ItemRange::new(), inital_workflow));
+    paths.push((ItemRange::new(), "in"));
 
     let mut count = 0;
 
     while let Some((mut range, workflow)) = paths.pop() {
-        for rule in workflow {
+        for rule in workflows.get(workflow) {
             let (pass, fail) = rule.apply_range(&range);
 
             if let Some((pass, outcome)) = pass {
                 match outcome {
                     Outcome::Forward(w) => {
-                        let workflow = rule_map.get(w).unwrap();
-                        paths.push((pass, workflow));
+                        paths.push((pass, w));
                     }
                     Outcome::Accept => {
                         count += pass.count();
@@ -73,56 +69,47 @@ pub fn part_two(input: &str) -> i64 {
     count
 }
 
-fn parse_rule_map(input: &str) -> HashMap<&'_ str, Vec<Rule>> {
-    let mut rule_map = HashMap::new();
-
-    for line in input.trim().lines() {
-        let (name, rest) = line.split_once("{").unwrap();
-        let rules = rest.trim_end_matches("}").split(",");
-
-        let mut rule_list = Vec::new();
-        for rule in rules {
-            let less = rule.split_once('<').map(|(p, r)| (p, r, Operation::Less));
-            let greater = rule
-                .split_once('>')
-                .map(|(p, r)| (p, r, Operation::Greater));
-
-            let rule = if let Some((param, rest, op)) = less.or(greater) {
-                let (value, outcome) = rest.split_once(':').unwrap();
-                let value = value.parse::<i64>().unwrap();
-                let outcome = Outcome::from_str(outcome);
-                let param = Param::from_str(param);
-                let condition = Condition::Apply(param, op, value);
-
-                Rule { condition, outcome }
-            } else {
-                let condition = Condition::Default;
-                let outcome = Outcome::from_str(rule);
-
-                Rule { condition, outcome }
-            };
-            rule_list.push(rule);
-        }
-        rule_map.insert(name, rule_list);
-    }
-
-    rule_map
+struct WorkflowMap<'a> {
+    workflows: HashMap<&'a str, (usize, usize)>,
+    rules: Vec<Rule<'a>>,
 }
 
-fn parse_item(line: &str) -> Item {
-    let line = line.trim_start_matches('{').trim_end_matches('}');
+impl<'a> WorkflowMap<'a> {
+    fn new(input: &'a str) -> Self {
+        let mut workflows = HashMap::new();
+        let mut rules = Vec::new();
 
-    let mut item = Item::builder();
-    for param in line.split(",") {
-        let (param, value) = param.split_once('=').unwrap();
+        for line in input.trim().lines() {
+            let (name, rest) = line.trim_end_matches('}').split_once('{').unwrap();
 
-        let param = Param::from_str(param);
-        let value = value.parse::<i64>().unwrap();
+            let start_idx = rules.len();
+            rules.extend(rest.split(",").map(|r| Rule::try_from(r).unwrap()));
+            workflows.insert(name, (start_idx, rules.len()));
+        }
 
-        item.add(param, value);
+        WorkflowMap { workflows, rules }
     }
 
-    item.build()
+    fn get(&self, workflow: &str) -> impl Iterator<Item = Rule> + '_ {
+        let workflow = self.workflows.get(workflow).copied();
+        let mut i = 0;
+
+        std::iter::from_fn(move || {
+            let Some((start_idx, end_idx)) = workflow else {
+                return None;
+            };
+
+            if i + start_idx == end_idx {
+                return None;
+            }
+
+            let rule = self.rules.get(start_idx + i).copied();
+
+            i += 1;
+
+            rule
+        })
+    }
 }
 
 #[derive(Default)]
@@ -181,6 +168,29 @@ impl Item {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+struct ItemParseErr;
+
+impl std::str::FromStr for Item {
+    type Err = ItemParseErr;
+
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
+        let line = line.trim_start_matches('{').trim_end_matches('}');
+
+        let mut item = Item::builder();
+        for param in line.split(",") {
+            let (param, value) = param.split_once('=').ok_or(ItemParseErr)?;
+
+            let param = param.parse().map_err(|_| ItemParseErr)?;
+            let value = value.parse().map_err(|_| ItemParseErr)?;
+
+            item.add(param, value);
+        }
+
+        Ok(item.build())
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Param {
     X,
@@ -189,15 +199,22 @@ enum Param {
     S,
 }
 
-impl Param {
-    fn from_str(s: &str) -> Self {
-        match s {
+#[derive(Debug, Copy, Clone)]
+struct ParamParseErr;
+
+impl std::str::FromStr for Param {
+    type Err = ParamParseErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let param = match s {
             "x" => Param::X,
             "m" => Param::M,
             "a" => Param::A,
             "s" => Param::S,
-            _ => unreachable!(),
-        }
+            _ => return Err(ParamParseErr),
+        };
+
+        Ok(param)
     }
 }
 
@@ -230,9 +247,9 @@ enum Outcome<'a> {
     Reject,
 }
 
-impl<'a> Outcome<'a> {
-    fn from_str(s: &'a str) -> Outcome<'a> {
-        match s {
+impl<'a> From<&'a str> for Outcome<'a> {
+    fn from(value: &'a str) -> Self {
+        match value {
             "A" => Outcome::Accept,
             "R" => Outcome::Reject,
             s => Outcome::Forward(s),
@@ -290,6 +307,35 @@ impl<'a> Rule<'a> {
                 (pass, fail)
             }
             Condition::Default => (Some((*item, self.outcome)), None),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct RuleParseErr;
+
+impl<'a> TryFrom<&'a str> for Rule<'a> {
+    type Error = RuleParseErr;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let less = value.split_once('<').map(|(p, r)| (p, r, Operation::Less));
+        let greater = value
+            .split_once('>')
+            .map(|(p, r)| (p, r, Operation::Greater));
+
+        if let Some((param, rest, op)) = less.or(greater) {
+            let (value, outcome) = rest.split_once(':').ok_or(RuleParseErr)?;
+            let value = value.parse().map_err(|_| RuleParseErr)?;
+            let outcome = outcome.try_into().map_err(|_| RuleParseErr)?;
+            let param = param.parse().map_err(|_| RuleParseErr)?;
+            let condition = Condition::Apply(param, op, value);
+
+            Ok(Rule { condition, outcome })
+        } else {
+            let condition = Condition::Default;
+            let outcome = value.try_into().map_err(|_| RuleParseErr)?;
+
+            Ok(Rule { condition, outcome })
         }
     }
 }
