@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion, PlottingBackend};
 
 use advent::solutions::{self, SolutionCollection};
 
@@ -23,5 +23,10 @@ fn do_bench(c: &mut Criterion, year: u32, days: SolutionCollection) {
     group.finish();
 }
 
-criterion_group!(benches, all_years);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().plotting_backend(PlottingBackend::Plotters);
+    targets = all_years
+}
+
 criterion_main!(benches);
