@@ -14,13 +14,12 @@ basic_profiler = []
 ureq = "2.8"
 ahash = "0.8"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+perf-event = "0.4"
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
 name = "criterion"
 harness = false
-
-
-[target.'cfg(target_os = "linux")'.dependencies]
-perf-event = "0.4"
