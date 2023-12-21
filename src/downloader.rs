@@ -2,7 +2,7 @@ const USER_AGENT: &'static str = "aoc-submission-nickmass";
 
 pub struct InputDownloader {
     session_key: Option<String>,
-    http_client: reqwest::blocking::Client,
+    http_client: ureq::Agent,
 }
 
 impl InputDownloader {
@@ -10,7 +10,8 @@ impl InputDownloader {
         let session_key = std::fs::read_to_string(".session-key")
             .ok()
             .map(|s| s.trim().to_string());
-        let http_client = reqwest::blocking::Client::new();
+
+        let http_client = ureq::builder().user_agent(USER_AGENT).build();
 
         Self {
             session_key,
@@ -34,14 +35,10 @@ impl InputDownloader {
                 .as_ref()
                 .ok_or("file '.session-key' not found")?;
             let url = format!("https://adventofcode.com/{}/day/{}/input", event, day);
-            let res = self
-                .http_client
-                .get(&url)
-                .header("cookie", format!("session={}", session_key))
-                .header("user-agent", USER_AGENT)
-                .send()?
-                .error_for_status()?;
-            let input = res.text()?;
+            let auth = format!("session={}", session_key);
+            let res = self.http_client.get(&url).set("cookie", &auth).call()?;
+
+            let input = res.into_string()?;
             std::fs::create_dir_all(&path.parent().expect("input path should have parent"))?;
             std::fs::write(&path, &input)?;
 
@@ -66,19 +63,14 @@ impl InputDownloader {
             .as_ref()
             .ok_or("file '.session-key' not found")?;
 
-        let body = format!("level={}&answer={}", part, answer.as_ref());
         let url = format!("https://adventofcode.com/{}/day/{}/answer", event, day);
+        let auth = format!("session={}", session_key);
         let res = self
             .http_client
             .post(&url)
-            .header("cookie", format!("session={}", session_key))
-            .header("content-type", "application/x-www-form-urlencoded")
-            .header("user-agent", USER_AGENT)
-            .body(body)
-            .send()?
-            .error_for_status()?;
-
-        let text = res.text()?;
+            .set("cookie", &auth)
+            .send_form(&[("level", &part.to_string()), ("answer", answer.as_ref())])?;
+        let text = res.into_string()?;
 
         let mut output = false;
         for line in text.lines() {
