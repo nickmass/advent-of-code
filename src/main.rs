@@ -39,9 +39,7 @@ fn main() {
             "--submit" | "-s" => submission = true,
             "--details" | "-d" => details = true,
             "--help" | "-h" => {
-                println!("--submit\t-s\t\tAsk to submit answer after each solution");
-                println!("--details\t-d\t\tDisplay additional performance metrics");
-                println!("--help\t\t-h\t\tDisplay this message");
+                usage();
                 return;
             }
             _ => (),
@@ -152,14 +150,14 @@ fn run_day(ctx: &mut Context, event: u32, day: &Solution) -> Duration {
             let part_one_metrics = ctx.profiler.stop();
             let part_one = part_one.to_string();
 
-            print_line(ctx, day.day, 1, &part_one, &part_one_metrics);
+            print_line(ctx, event, day.day, 1, &part_one, &part_one_metrics);
 
             ctx.profiler.start();
             let part_two = (day.part_two)(&input);
             let part_two_metrics = ctx.profiler.stop();
             let part_two = part_two.to_string();
 
-            print_line(ctx, day.day, 2, &part_two, &part_two_metrics);
+            print_line(ctx, event, day.day, 2, &part_two, &part_two_metrics);
 
             if ctx.submission {
                 submit_day_part(ctx, event, day, 1, &part_one);
@@ -214,7 +212,14 @@ fn submit_day_part(ctx: &Context, event: u32, day: &Solution, part: u32, answer:
     }
 }
 
-fn print_line<S: AsRef<str>>(ctx: &Context, day: u32, part: u32, answer: S, metrics: &Metrics) {
+fn print_line<S: AsRef<str>>(
+    ctx: &Context,
+    _event: u32,
+    day: u32,
+    part: u32,
+    answer: S,
+    metrics: &Metrics,
+) {
     let answer = answer.as_ref();
     if answer.len() <= 25 {
         println!(
@@ -234,4 +239,40 @@ fn print_line<S: AsRef<str>>(ctx: &Context, day: u32, part: u32, answer: S, metr
         );
         println!("{}", answer);
     }
+}
+
+fn usage() {
+    let usage = "Usage: advent-of-code [OPTIONS] [EVENT] [DAY]...
+
+Arguments:
+
+	[EVENT]
+		Limit to solutions from a speific year, defaults to most recent year, 'all' will execute all events.
+
+	[DAY]...
+		Only execute specified days within the choosen event.
+
+Options:
+
+	--submit	-s
+		Ask to submit answer after each solution. Requires '.session-key' file containing an Advent of Code authentication cookie value in the working directory.
+
+	--details	-d
+		Display additional performance metrics.
+
+	--help	-h
+		Display this message.
+
+Examples:
+
+	advent-of-code 2021
+		Execute all solutions from 2021.
+
+	advent-of-code -s 2023 22
+		Execute parts 1 and 2 from day 22 of 2023, prompt to submit the solution after each part.
+
+	advent-of-code -d all
+		Execute all solutions with detailed metrics.
+";
+    println!("{}", usage);
 }
