@@ -1,12 +1,12 @@
 use crate::{HashMap, HashSet};
 
-pub fn part_one(input: &str) -> i64 {
+pub fn part_one(input: &str) -> usize {
     solve_part_one::<64>(input)
 }
 
-fn solve_part_one<const STEPS: usize>(input: &str) -> i64 {
+fn solve_part_one<const STEPS: i64>(input: &str) -> usize {
     let map = Map::new(input);
-    map.track_steps::<STEPS>(false)
+    map.visited_squares(STEPS, false).len()
 }
 
 pub fn part_two(input: &str) -> i64 {
@@ -20,7 +20,7 @@ pub fn part_two(input: &str) -> i64 {
     let map = Map::new(input);
     let width = map.width as i64;
     let min_steps = (steps % width) + width + width;
-    let grid_results = map.count_steps_per_grid(min_steps);
+    let grid_results = map.visited_squares_per_grid(min_steps, true);
 
     let (mut a, mut b) = (0, 0);
     for i in 1..(steps / width) {
@@ -69,9 +69,9 @@ pub fn part_two(input: &str) -> i64 {
 }
 
 #[allow(dead_code)]
-fn solve_part_two<const STEPS: usize>(input: &str) -> i64 {
+fn solve_part_two<const STEPS: i64>(input: &str) -> usize {
     let map = Map::new(input);
-    map.track_steps::<STEPS>(true)
+    map.visited_squares(STEPS, true).len()
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -187,49 +187,39 @@ impl Map {
         )
     }
 
-    fn track_steps<const STEPS: usize>(&self, infinite: bool) -> i64 {
-        let mut haystack = Vec::new();
-        haystack.push((0, self.start));
+    fn visited_squares(&self, steps: i64, infinite: bool) -> HashSet<(i64, i64)> {
+        let mut recent_new = HashSet::new();
+        let mut recent_old = HashSet::new();
+        let mut map_new = HashSet::new();
+        let mut map_old = HashSet::new();
 
-        let mut visited = HashSet::new();
-        let mut result = 0;
+        recent_old.insert(self.start);
+        map_old.insert(self.start);
 
-        while let Some((steps, point)) = haystack.pop() {
-            if !visited.insert((steps, point)) {
-                continue;
+        for _ in 0..steps {
+            for p in recent_old.drain() {
+                for n in self.neighbors(p, infinite) {
+                    if map_new.insert(n) {
+                        recent_new.insert(n);
+                    }
+                }
             }
 
-            if steps == STEPS {
-                result += 1;
-                continue;
-            }
-
-            haystack.extend(self.neighbors(point, infinite).map(|p| (steps + 1, p)));
+            std::mem::swap(&mut recent_old, &mut recent_new);
+            std::mem::swap(&mut map_old, &mut map_new);
         }
 
-        result
+        map_old
     }
 
-    fn count_steps_per_grid(&self, target_steps: i64) -> HashMap<(i64, i64), i64> {
-        let mut haystack = Vec::new();
-        haystack.push((0, self.start));
-
-        let mut visited = HashSet::new();
+    fn visited_squares_per_grid(&self, steps: i64, infinite: bool) -> HashMap<(i64, i64), i64> {
+        let visits = self.visited_squares(steps, infinite);
         let mut result = HashMap::new();
 
-        while let Some((steps, point)) = haystack.pop() {
-            if !visited.insert((steps, point)) {
-                continue;
-            }
-
-            if steps == target_steps {
-                let grid_pos = self.grid_position(point);
-                let entry = result.entry(grid_pos).or_insert(0);
-                *entry += 1;
-                continue;
-            }
-
-            haystack.extend(self.neighbors(point, true).map(|p| (steps + 1, p)));
+        for p in visits {
+            let grid_pos = self.grid_position(p);
+            let entry = result.entry(grid_pos).or_insert(0);
+            *entry += 1;
         }
 
         result
@@ -256,8 +246,8 @@ fn test() {
     assert_eq!(50, solve_part_two::<10>(input));
     assert_eq!(1594, solve_part_two::<50>(input));
     assert_eq!(6536, solve_part_two::<100>(input));
+    assert_eq!(167004, solve_part_two::<500>(input));
 
-    //assert_eq!(167004, solve_part_two::<500>(input));
     //assert_eq!(668697, solve_part_two::<1000>(input));
     //assert_eq!(16733044, solve_part_two::<5000>(input));
 }
