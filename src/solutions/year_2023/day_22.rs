@@ -1,145 +1,64 @@
 use crate::{HashMap, HashSet};
 
 pub fn part_one(input: &str) -> usize {
-    let lines = input.trim().lines();
-    let mut bricks: Vec<_> = lines.map(Brick::from_str).collect();
-
-    bricks.sort_unstable_by_key(|b| std::cmp::Reverse(b.min.2));
-
-    loop {
-        let mut did_drop = false;
-        'outer: for i in 0..bricks.len() {
-            if bricks[i].on_floor() {
-                continue;
-            }
-            for j in i..bricks.len() {
-                if i == j {
-                    continue;
-                }
-
-                if bricks[j].z_max() != bricks[i].z_min() - 1 {
-                    continue;
-                }
-
-                for p in bricks[i].spaces_below() {
-                    if bricks[j].is_inside(p) {
-                        continue 'outer;
-                    }
-                }
-            }
-
-            bricks[i].drop();
-            did_drop = true;
-        }
-
-        if !did_drop {
-            break;
-        }
-    }
-
-    let mut map = HashMap::new();
-
-    for i in 0..bricks.len() {
-        for j in i..bricks.len() {
-            if i == j {
-                continue;
-            }
-
-            if bricks[j].z_max() != bricks[i].z_min() - 1 {
-                continue;
-            }
-
-            for p in bricks[i].spaces_below() {
-                if bricks[j].is_inside(p) {
-                    let entry = map.entry(i).or_insert(Vec::new());
-                    entry.push(j);
-
-                    break;
-                }
-            }
-        }
-    }
+    let mut pile = BrickStack::new(input);
+    pile.compress();
+    let supporters = pile.find_supporters();
 
     let mut required = crate::HashSet::new();
-    for (_, v) in map {
+    for (_, v) in supporters {
         if v.len() == 1 {
             required.insert(v[0]);
         }
     }
 
-    bricks.len() - required.len()
+    pile.bricks.len() - required.len()
 }
 
 pub fn part_two(input: &str) -> usize {
-    let lines = input.trim().lines();
-    let mut bricks: Vec<_> = lines.map(Brick::from_str).collect();
+    let mut pile = BrickStack::new(input);
+    pile.compress();
+    pile.find_impact()
+}
 
-    bricks.sort_unstable_by_key(|b| std::cmp::Reverse(b.min.2));
+struct BrickStack {
+    bricks: Vec<Brick>,
+}
 
-    loop {
-        let mut did_drop = false;
-        'outer: for i in 0..bricks.len() {
-            if bricks[i].on_floor() {
-                continue;
-            }
-            for j in i..bricks.len() {
-                if i == j {
-                    continue;
-                }
+impl BrickStack {
+    fn new(input: &str) -> Self {
+        let lines = input.trim().lines();
+        let mut bricks: Vec<_> = lines.map(Brick::from_str).collect();
 
-                if bricks[j].z_max() != bricks[i].z_min() - 1 {
-                    continue;
-                }
+        bricks.sort_unstable_by_key(|b| std::cmp::Reverse(b.min.2));
 
-                for p in bricks[i].spaces_below() {
-                    if bricks[j].is_inside(p) {
-                        continue 'outer;
-                    }
-                }
-            }
-
-            bricks[i].drop();
-            did_drop = true;
-        }
-
-        if !did_drop {
-            break;
-        }
+        BrickStack { bricks }
     }
 
-    let mut max = 0;
-    let mut falling_bricks = HashSet::new();
-
-    for k in 0..bricks.len() {
-        let mut bricks = bricks.clone();
+    fn compress(&mut self) {
         loop {
             let mut did_drop = false;
-            'outer: for i in 0..bricks.len() {
-                if i == k {
+            'outer: for i in 0..self.bricks.len() {
+                if self.bricks[i].on_floor() {
                     continue;
                 }
-
-                if bricks[i].on_floor() {
-                    continue;
-                }
-                for j in i..bricks.len() {
-                    if i == j || j == k {
+                for j in i..self.bricks.len() {
+                    if i == j {
                         continue;
                     }
 
-                    if bricks[j].z_max() != bricks[i].z_min() - 1 {
+                    if self.bricks[j].z_max() != self.bricks[i].z_min() - 1 {
                         continue;
                     }
 
-                    for p in bricks[i].spaces_below() {
-                        if bricks[j].is_inside(p) {
+                    for p in self.bricks[i].spaces_below() {
+                        if self.bricks[j].is_inside(p) {
                             continue 'outer;
                         }
                     }
                 }
 
-                falling_bricks.insert(i);
-                bricks[i].drop();
+                self.bricks[i].drop();
                 did_drop = true;
             }
 
@@ -147,15 +66,62 @@ pub fn part_two(input: &str) -> usize {
                 break;
             }
         }
-
-        max += falling_bricks.len();
-        falling_bricks.clear();
     }
 
-    max
+    fn find_supporters(&self) -> HashMap<usize, Vec<usize>> {
+        let mut map = HashMap::new();
+
+        for i in 0..self.bricks.len() {
+            for j in i..self.bricks.len() {
+                if i == j {
+                    continue;
+                }
+
+                if self.bricks[j].z_max() != self.bricks[i].z_min() - 1 {
+                    continue;
+                }
+
+                for p in self.bricks[i].spaces_below() {
+                    if self.bricks[j].is_inside(p) {
+                        let entry = map.entry(i).or_insert(Vec::new());
+                        entry.push(j);
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        map
+    }
+
+    fn find_impact(&self) -> usize {
+        let supporters = self.find_supporters();
+        let mut count = 0;
+        let mut dropped = HashSet::new();
+
+        for i in 0..self.bricks.len() {
+            dropped.clear();
+            dropped.insert(i);
+            loop {
+                let mut changed = false;
+                for (on_top, below) in supporters.iter() {
+                    if below.iter().all(|b| dropped.contains(b)) {
+                        changed |= dropped.insert(*on_top);
+                    }
+                }
+                if !changed {
+                    break;
+                }
+            }
+
+            count += dropped.len() - 1;
+        }
+
+        count
+    }
 }
 
-#[derive(Debug, Clone)]
 struct Brick {
     min: (i32, i32, i32),
     max: (i32, i32, i32),
