@@ -1,19 +1,75 @@
-use crate::HashSet;
+use crate::{HashMap, HashSet};
 
-pub fn part_one(input: &str) -> usize {
+pub fn part_one(input: &str) -> i64 {
     solve_part_one::<64>(input)
 }
 
-fn solve_part_one<const STEPS: usize>(input: &str) -> usize {
+fn solve_part_one<const STEPS: usize>(input: &str) -> i64 {
     let map = Map::new(input);
     map.track_steps::<STEPS>(false)
 }
 
-pub fn part_two(input: &str) -> usize {
-    solve_part_two::<26_501_365>(input)
+pub fn part_two(input: &str) -> i64 {
+    // This is not a general solution, it requres a square map.
+    // And some parts depend on how steps divides into the map width,
+    // I can resolve that and get it working for the test cases with some
+    // minor tweaks - but this is good for now.
+
+    let steps = 26501365;
+
+    let map = Map::new(input);
+    let width = map.width as i64;
+    let min_steps = (steps % width) + width + width;
+    let grid_results = map.count_steps_per_grid(min_steps);
+
+    let (mut a, mut b) = (0, 0);
+    for i in 1..(steps / width) {
+        if i % 2 == 0 {
+            a += 4 + ((i - 1) * 4);
+        } else {
+            b += 4 + ((i - 1) * 4);
+        }
+    }
+    a += 1;
+
+    let center = grid_results.get(&(0, 0)).copied().unwrap();
+    let center_odd = grid_results.get(&(0, 1)).copied().unwrap();
+    let north = grid_results.get(&(0, -2)).copied().unwrap();
+    let south = grid_results.get(&(0, 2)).copied().unwrap();
+    let west = grid_results.get(&(-2, 0)).copied().unwrap();
+    let east = grid_results.get(&(2, 0)).copied().unwrap();
+    let north_west = grid_results.get(&(-2, -1)).copied().unwrap();
+    let north_west_odd = grid_results.get(&(-1, -1)).copied().unwrap();
+    let north_east = grid_results.get(&(2, -1)).copied().unwrap();
+    let north_east_odd = grid_results.get(&(1, -1)).copied().unwrap();
+    let south_west = grid_results.get(&(-2, 1)).copied().unwrap();
+    let south_west_odd = grid_results.get(&(-1, 1)).copied().unwrap();
+    let south_east = grid_results.get(&(2, 1)).copied().unwrap();
+    let south_east_odd = grid_results.get(&(1, 1)).copied().unwrap();
+
+    let corners: i64 = [north, south, west, east].into_iter().sum();
+    let long_edge: i64 = [north_west, north_east, south_west, south_east]
+        .into_iter()
+        .sum();
+
+    let short_edge: i64 = [
+        north_west_odd,
+        north_east_odd,
+        south_west_odd,
+        south_east_odd,
+    ]
+    .into_iter()
+    .sum();
+
+    return corners
+        + (steps / width * long_edge)
+        + (((steps / width) - 1) * short_edge)
+        + (center * a)
+        + (center_odd * b);
 }
 
-fn solve_part_two<const STEPS: usize>(input: &str) -> usize {
+#[allow(dead_code)]
+fn solve_part_two<const STEPS: usize>(input: &str) -> i64 {
     let map = Map::new(input);
     map.track_steps::<STEPS>(true)
 }
@@ -26,7 +82,7 @@ enum Cell {
 
 struct Map {
     cells: Vec<Cell>,
-    start: (i32, i32),
+    start: (i64, i64),
     width: usize,
     height: usize,
 }
@@ -50,7 +106,7 @@ impl Map {
                     '.' => Cell::Open,
                     '#' => Cell::Rock,
                     'S' => {
-                        start = Some((x as i32, y as i32));
+                        start = Some((x as i64, y as i64));
                         Cell::Open
                     }
                     _ => unreachable!(),
@@ -70,7 +126,7 @@ impl Map {
         }
     }
 
-    fn get(&self, (x, y): (i32, i32), infinite: bool) -> Option<Cell> {
+    fn get(&self, (x, y): (i64, i64), infinite: bool) -> Option<Cell> {
         let (x, y) = if infinite {
             self.normalize((x, y))
         } else {
@@ -93,9 +149,9 @@ impl Map {
 
     fn neighbors(
         &self,
-        (x, y): (i32, i32),
+        (x, y): (i64, i64),
         infinite: bool,
-    ) -> impl Iterator<Item = (i32, i32)> + '_ {
+    ) -> impl Iterator<Item = (i64, i64)> + '_ {
         let mut i = 0;
 
         std::iter::from_fn(move || loop {
@@ -117,19 +173,21 @@ impl Map {
         })
     }
 
-    fn normalize(&self, (x, y): (i32, i32)) -> (i32, i32) {
+    fn normalize(&self, (x, y): (i64, i64)) -> (i64, i64) {
         (
-            x.rem_euclid(self.width as i32),
-            y.rem_euclid(self.height as i32),
+            x.rem_euclid(self.width as i64),
+            y.rem_euclid(self.height as i64),
         )
     }
 
-    fn track_steps<const STEPS: usize>(&self, infinite: bool) -> usize {
-        // TODO: Figure out what the hell is going on with part 2
-        if infinite && STEPS > 5000 {
-            return 0;
-        }
+    fn grid_position(&self, (x, y): (i64, i64)) -> (i64, i64) {
+        (
+            x.div_euclid(self.width as i64),
+            y.div_euclid(self.height as i64),
+        )
+    }
 
+    fn track_steps<const STEPS: usize>(&self, infinite: bool) -> i64 {
         let mut haystack = Vec::new();
         haystack.push((0, self.start));
 
@@ -147,6 +205,31 @@ impl Map {
             }
 
             haystack.extend(self.neighbors(point, infinite).map(|p| (steps + 1, p)));
+        }
+
+        result
+    }
+
+    fn count_steps_per_grid(&self, target_steps: i64) -> HashMap<(i64, i64), i64> {
+        let mut haystack = Vec::new();
+        haystack.push((0, self.start));
+
+        let mut visited = HashSet::new();
+        let mut result = HashMap::new();
+
+        while let Some((steps, point)) = haystack.pop() {
+            if !visited.insert((steps, point)) {
+                continue;
+            }
+
+            if steps == target_steps {
+                let grid_pos = self.grid_position(point);
+                let entry = result.entry(grid_pos).or_insert(0);
+                *entry += 1;
+                continue;
+            }
+
+            haystack.extend(self.neighbors(point, true).map(|p| (steps + 1, p)));
         }
 
         result
