@@ -322,22 +322,18 @@ impl Graph {
         let mut max = 0;
 
         while let Some((cost, visited_len, node)) = haystack.pop() {
-            visited.truncate(visited_len);
-            if visited.contains(&node) {
-                continue;
-            }
-
             if node == Node::End {
                 max = max.max(cost);
                 continue;
             }
 
-            visited.push(node);
-
+            visited.truncate(visited_len);
             haystack.extend(
                 self.edges(node)
-                    .map(|e| (cost + e.cost, visited.len(), e.right)),
+                    .filter(|e| !visited.contains(&e.right))
+                    .map(|e| (cost + e.cost, visited_len + 1, e.right)),
             );
+            visited.push(node);
         }
 
         max
