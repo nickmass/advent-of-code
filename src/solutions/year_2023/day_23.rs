@@ -235,22 +235,17 @@ enum Node {
 
 #[derive(Debug, Copy, Clone)]
 struct Edge {
-    left: NodeId,
-    right: NodeId,
+    left: Node,
+    right: Node,
     cost: u32,
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct NodeId(usize);
 
 #[derive(Debug, Copy, Clone)]
 struct EdgeId(usize);
 
 #[derive(Debug)]
 struct Graph {
-    nodes: Vec<Node>,
     edges: Vec<Edge>,
-    node_map: HashMap<Node, NodeId>,
     edge_map: HashMap<Node, EdgeId>,
 }
 
@@ -258,31 +253,25 @@ impl Graph {
     fn new(map: Map) -> Self {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
-        let mut node_map = HashMap::new();
         let mut edge_map = HashMap::new();
 
-        let node_id = NodeId(nodes.len());
-        node_map.insert(Node::Start, node_id);
         nodes.push(Node::Start);
-
-        let node_id = NodeId(nodes.len());
-        node_map.insert(Node::End, node_id);
         nodes.push(Node::End);
 
         for (_, point) in map.intersection_distance(map.start, true, true) {
+            if point == map.start || point == map.end {
+                continue;
+            }
             let node = Node::Intersection(point);
-            let node_id = NodeId(nodes.len());
-            node_map.insert(node, node_id);
             nodes.push(node);
         }
 
-        for left_node in nodes.iter() {
+        for left_node in nodes {
             let start = match left_node {
                 Node::Start => map.start,
-                Node::Intersection(p) => *p,
+                Node::Intersection(p) => p,
                 Node::End => map.end,
             };
-            let left_id = node_map.get(&left_node).copied().unwrap();
             let edge_id = EdgeId(edges.len());
             for (cost, right) in map.intersection_distance(start, false, false) {
                 let right_node = if right == map.start {
@@ -292,37 +281,30 @@ impl Graph {
                 } else {
                     Node::Intersection(right)
                 };
-                let right_id = node_map.get(&right_node).copied().unwrap();
 
                 let edge = Edge {
-                    left: left_id,
-                    right: right_id,
+                    left: left_node,
+                    right: right_node,
                     cost,
                 };
 
                 edges.push(edge);
             }
 
-            edge_map.insert(*left_node, edge_id);
+            edge_map.insert(left_node, edge_id);
         }
 
-        Self {
-            nodes,
-            edges,
-            node_map,
-            edge_map,
-        }
+        Self { edges, edge_map }
     }
 
     fn edges<'a>(&'a self, node: Node) -> impl Iterator<Item = Edge> + 'a {
-        let node_id = self.node_map.get(&node).unwrap();
         let edge_id = self.edge_map.get(&node).unwrap();
         let mut i = edge_id.0;
 
         std::iter::from_fn(move || {
             if let Some(edge) = self.edges.get(i) {
                 i += 1;
-                if edge.left == *node_id {
+                if edge.left == node {
                     return Some(*edge);
                 } else {
                     return None;
@@ -352,10 +334,10 @@ impl Graph {
 
             visited.push(node);
 
-            haystack.extend(self.edges(node).map(|e| {
-                let node = self.nodes[e.right.0];
-                (cost + e.cost, visited.len(), node)
-            }));
+            haystack.extend(
+                self.edges(node)
+                    .map(|e| (cost + e.cost, visited.len(), e.right)),
+            );
         }
 
         max
