@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::{HashMap, HashSet};
+use crate::HashSet;
 
 pub fn part_one(input: &str) -> u32 {
     let map = Map::new(input, false);
@@ -226,17 +226,39 @@ impl Map {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Node {
     Start,
     Intersection((i32, i32)),
     End,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct BitNode(u8);
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct BitNodeFilter(u64);
+
+impl BitNodeFilter {
+    fn new() -> Self {
+        BitNodeFilter(0)
+    }
+
+    fn insert(self, BitNode(idx): BitNode) -> Self {
+        let n = 1 << idx;
+        BitNodeFilter(self.0 | n)
+    }
+
+    fn contains(&self, BitNode(idx): BitNode) -> bool {
+        let n = 1 << idx;
+        self.0 & n != 0
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 struct Edge {
-    left: Node,
-    right: Node,
+    left: BitNode,
+    right: BitNode,
     cost: u32,
 }
 
@@ -246,16 +268,17 @@ struct EdgeId(usize);
 #[derive(Debug)]
 struct Graph {
     edges: Vec<Edge>,
-    edge_map: HashMap<Node, EdgeId>,
+    edge_map: Vec<EdgeId>,
 }
 
 impl Graph {
     fn new(map: Map) -> Self {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
-        let mut edge_map = HashMap::new();
 
+        // Start must be BitNode(0)
         nodes.push(Node::Start);
+        // End must be BitNode(1)
         nodes.push(Node::End);
 
         for (_, point) in map.intersection_distance(map.start, true, true) {
@@ -266,74 +289,85 @@ impl Graph {
             nodes.push(node);
         }
 
-        for left_node in nodes {
+        assert!(
+            nodes.len() < 64,
+            "BitNode structure only supports 64 or fewer nodes"
+        );
+
+        let mut edge_map = Vec::new();
+
+        for (left_idx, &left_node) in nodes.iter().enumerate() {
             let start = match left_node {
                 Node::Start => map.start,
                 Node::Intersection(p) => p,
                 Node::End => map.end,
             };
             let edge_id = EdgeId(edges.len());
+            let left_bit_node = BitNode(left_idx as u8);
             for (cost, right) in map.intersection_distance(start, false, false) {
+                if left_node == Node::End {
+                    break;
+                }
                 let right_node = if right == map.start {
-                    Node::Start
+                    continue;
                 } else if right == map.end {
                     Node::End
                 } else {
                     Node::Intersection(right)
                 };
 
+                let right_idx = nodes.iter().position(|n| *n == right_node).unwrap();
+
                 let edge = Edge {
-                    left: left_node,
-                    right: right_node,
+                    left: left_bit_node,
+                    right: BitNode(right_idx as u8),
                     cost,
                 };
 
                 edges.push(edge);
             }
-
-            edge_map.insert(left_node, edge_id);
+            edge_map.push(edge_id);
         }
 
         Self { edges, edge_map }
     }
 
-    fn edges<'a>(&'a self, node: Node) -> impl Iterator<Item = Edge> + 'a {
-        let edge_id = self.edge_map.get(&node).unwrap();
+    fn edges<'a>(&'a self, node: BitNode) -> impl Iterator<Item = Edge> + 'a {
+        let edge_id = self.edge_map.get(node.0 as usize).unwrap();
         let mut i = edge_id.0;
 
         std::iter::from_fn(move || {
             if let Some(edge) = self.edges.get(i) {
                 i += 1;
                 if edge.left == node {
-                    return Some(*edge);
+                    Some(*edge)
                 } else {
-                    return None;
+                    None
                 }
+            } else {
+                None
             }
-            None
         })
     }
 
     fn find_long_path(&self) -> u32 {
-        let mut visited = Vec::new();
+        let visited = BitNodeFilter::new();
         let mut haystack = Vec::new();
-        haystack.push((0, 0, Node::Start));
+        haystack.push((0, visited, BitNode(0)));
 
         let mut max = 0;
 
-        while let Some((cost, visited_len, node)) = haystack.pop() {
-            if node == Node::End {
+        while let Some((cost, visited, node)) = haystack.pop() {
+            if node == BitNode(1) {
                 max = max.max(cost);
                 continue;
             }
 
-            visited.truncate(visited_len);
             haystack.extend(
                 self.edges(node)
-                    .filter(|e| !visited.contains(&e.right))
-                    .map(|e| (cost + e.cost, visited_len + 1, e.right)),
+                    .filter(|e| !visited.contains(e.right))
+                    .map(|e| (cost + e.cost, visited.insert(node), e.right)),
             );
-            visited.push(node);
         }
 
         max
