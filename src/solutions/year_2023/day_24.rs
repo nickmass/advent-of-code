@@ -62,8 +62,18 @@ impl Hailstone {
             let x = ((x1 * y2 - y1 * x2) * (x3 - x4)) - ((x1 - x2) * (x3 * y4 - y3 * x4));
             let y = ((x1 * y2 - y1 * x2) * (y3 - y4)) - ((y1 - y2) * (x3 * y4 - y3 * x4));
 
-            let p_x = x / d;
-            let p_y = y / d;
+            let dd = d.abs();
+
+            let p_x = x * d.signum();
+            let p_y = y * d.signum();
+
+            let x1 = x1 * dd;
+            let x3 = x3 * dd;
+            let y1 = y1 * dd;
+            let y3 = y3 * dd;
+
+            let low = LOW * dd;
+            let high = HIGH * dd;
 
             let mut in_future = true;
             in_future &= v_x1 <= 0 || p_x >= x1;
@@ -75,13 +85,9 @@ impl Hailstone {
             in_future &= v_y1 >= 0 || p_y <= y1;
             in_future &= v_y3 >= 0 || p_y <= y3;
 
-            let in_bounds = p_x >= LOW && p_x <= HIGH && p_y >= LOW && p_y <= HIGH;
+            let in_bounds = p_x >= low && p_x <= high && p_y >= low && p_y <= high;
 
-            if in_future && in_bounds {
-                true
-            } else {
-                false
-            }
+            in_future && in_bounds
         } else {
             false
         }
