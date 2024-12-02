@@ -48,13 +48,13 @@ fn parse_packets(input: &str) -> Vec<Packet> {
                 };
 
                 let packet = match type_id {
-                    0 => Packet::Sum(version, args, vec),
-                    1 => Packet::Product(version, args, vec),
-                    2 => Packet::Min(version, args, vec),
-                    3 => Packet::Max(version, args, vec),
-                    5 => Packet::Gt(version, args, vec),
-                    6 => Packet::Lt(version, args, vec),
-                    7 => Packet::Eq(version, args, vec),
+                    0 => Packet::Sum(version, vec),
+                    1 => Packet::Product(version, vec),
+                    2 => Packet::Min(version, vec),
+                    3 => Packet::Max(version, vec),
+                    5 => Packet::Gt(version, vec),
+                    6 => Packet::Lt(version, vec),
+                    7 => Packet::Eq(version, vec),
                     _ => unreachable!(),
                 };
 
@@ -105,25 +105,25 @@ fn parse_packets(input: &str) -> Vec<Packet> {
 
 enum Packet {
     Literal(u64, u64),
-    Sum(u64, Argument, Vec<usize>),
-    Product(u64, Argument, Vec<usize>),
-    Min(u64, Argument, Vec<usize>),
-    Max(u64, Argument, Vec<usize>),
-    Gt(u64, Argument, Vec<usize>),
-    Lt(u64, Argument, Vec<usize>),
-    Eq(u64, Argument, Vec<usize>),
+    Sum(u64, Vec<usize>),
+    Product(u64, Vec<usize>),
+    Min(u64, Vec<usize>),
+    Max(u64, Vec<usize>),
+    Gt(u64, Vec<usize>),
+    Lt(u64, Vec<usize>),
+    Eq(u64, Vec<usize>),
 }
 
 impl Packet {
     fn push_arg(&mut self, arg: usize) {
         match self {
-            Packet::Sum(_, _, args) => args.push(arg),
-            Packet::Product(_, _, args) => args.push(arg),
-            Packet::Min(_, _, args) => args.push(arg),
-            Packet::Max(_, _, args) => args.push(arg),
-            Packet::Gt(_, _, args) => args.push(arg),
-            Packet::Lt(_, _, args) => args.push(arg),
-            Packet::Eq(_, _, args) => args.push(arg),
+            Packet::Sum(_, args) => args.push(arg),
+            Packet::Product(_, args) => args.push(arg),
+            Packet::Min(_, args) => args.push(arg),
+            Packet::Max(_, args) => args.push(arg),
+            Packet::Gt(_, args) => args.push(arg),
+            Packet::Lt(_, args) => args.push(arg),
+            Packet::Eq(_, args) => args.push(arg),
             _ => (),
         }
     }
@@ -131,48 +131,46 @@ impl Packet {
     fn version(&self) -> u64 {
         match self {
             Packet::Literal(version, _) => *version,
-            Packet::Sum(version, _, _) => *version,
-            Packet::Product(version, _, _) => *version,
-            Packet::Min(version, _, _) => *version,
-            Packet::Max(version, _, _) => *version,
-            Packet::Gt(version, _, _) => *version,
-            Packet::Lt(version, _, _) => *version,
-            Packet::Eq(version, _, _) => *version,
+            Packet::Sum(version, _) => *version,
+            Packet::Product(version, _) => *version,
+            Packet::Min(version, _) => *version,
+            Packet::Max(version, _) => *version,
+            Packet::Gt(version, _) => *version,
+            Packet::Lt(version, _) => *version,
+            Packet::Eq(version, _) => *version,
         }
     }
 
     fn eval(&self, packets: &[Packet]) -> u64 {
         match self {
             Packet::Literal(_, v) => *v,
-            Packet::Sum(_, _, args) => args.iter().map(|id| packets[*id].eval(&packets)).sum(),
-            Packet::Product(_, _, args) => {
-                args.iter().map(|id| packets[*id].eval(&packets)).product()
-            }
-            Packet::Min(_, _, args) => args
+            Packet::Sum(_, args) => args.iter().map(|id| packets[*id].eval(&packets)).sum(),
+            Packet::Product(_, args) => args.iter().map(|id| packets[*id].eval(&packets)).product(),
+            Packet::Min(_, args) => args
                 .iter()
                 .map(|id| packets[*id].eval(&packets))
                 .min()
                 .unwrap(),
-            Packet::Max(_, _, args) => args
+            Packet::Max(_, args) => args
                 .iter()
                 .map(|id| packets[*id].eval(&packets))
                 .max()
                 .unwrap(),
-            Packet::Gt(_, _, args) => {
+            Packet::Gt(_, args) => {
                 if packets[args[0]].eval(&packets) > packets[args[1]].eval(&packets) {
                     1
                 } else {
                     0
                 }
             }
-            Packet::Lt(_, _, args) => {
+            Packet::Lt(_, args) => {
                 if packets[args[0]].eval(&packets) < packets[args[1]].eval(&packets) {
                     1
                 } else {
                     0
                 }
             }
-            Packet::Eq(_, _, args) => {
+            Packet::Eq(_, args) => {
                 if packets[args[0]].eval(&packets) == packets[args[1]].eval(&packets) {
                     1
                 } else {

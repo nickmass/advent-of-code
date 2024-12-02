@@ -285,7 +285,10 @@ unsafe impl GlobalAlloc for CountingAlloc {
                 self.peak_mem.store(peak, Ordering::Relaxed);
             } else {
                 let diff = size - new_size;
-                let current = self.current_mem.load(Ordering::Relaxed) - diff;
+                let current = self
+                    .current_mem
+                    .load(Ordering::Relaxed)
+                    .saturating_sub(diff);
                 self.current_mem.store(current, Ordering::Relaxed);
             }
         }
