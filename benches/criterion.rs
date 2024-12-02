@@ -8,6 +8,7 @@ pub fn all_years(c: &mut Criterion) {
     do_bench(c, 2021, solutions::days_2021());
     do_bench(c, 2022, solutions::days_2022());
     do_bench(c, 2023, solutions::days_2023());
+    do_bench(c, 2024, solutions::days_2024());
 }
 
 fn do_bench(c: &mut Criterion, year: u32, days: SolutionCollection) {

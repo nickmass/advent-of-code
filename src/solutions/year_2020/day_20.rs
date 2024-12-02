@@ -704,6 +704,7 @@ impl TileImage {
     }
 }
 
+#[allow(unused)]
 struct Borderless<'a>(&'a TileImage);
 
 impl<'a> std::fmt::Display for Borderless<'a> {
