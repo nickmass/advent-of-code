@@ -1,4 +1,5 @@
-use std::collections::{HashMap, VecDeque};
+use crate::HashMap;
+use std::collections::VecDeque;
 
 pub fn part_one(input: &str) -> u64 {
     let lines = input.trim().lines();

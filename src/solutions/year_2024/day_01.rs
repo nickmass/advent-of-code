@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::HashMap;
 
 pub fn part_one(input: &str) -> u32 {
     let (mut left, mut right): (Vec<_>, Vec<_>) = input
