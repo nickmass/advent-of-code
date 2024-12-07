@@ -1,22 +1,25 @@
 use criterion::{criterion_group, criterion_main, Criterion, PlottingBackend};
 
 use advent::solutions::{self, SolutionCollection};
+use advent::Input;
 
 pub fn all_years(c: &mut Criterion) {
-    do_bench(c, 2019, solutions::days_2019());
-    do_bench(c, 2020, solutions::days_2020());
-    do_bench(c, 2021, solutions::days_2021());
-    do_bench(c, 2022, solutions::days_2022());
-    do_bench(c, 2023, solutions::days_2023());
-    do_bench(c, 2024, solutions::days_2024());
+    let input = Input::new();
+    do_bench(c, &input, 2019, solutions::days_2019());
+    do_bench(c, &input, 2020, solutions::days_2020());
+    do_bench(c, &input, 2021, solutions::days_2021());
+    do_bench(c, &input, 2022, solutions::days_2022());
+    do_bench(c, &input, 2023, solutions::days_2023());
+    do_bench(c, &input, 2024, solutions::days_2024());
 }
 
-fn do_bench(c: &mut Criterion, year: u32, days: SolutionCollection) {
+fn do_bench(c: &mut Criterion, input: &Input, year: u32, days: SolutionCollection) {
     let mut group = c.benchmark_group(format!("{}", year));
     for day in days.solutions() {
-        let path = format!("input/year_{}/day_{:02}.txt", year, day.day);
-        let input =
-            std::fs::read_to_string(&path).expect(&format!("input path '{}' not found", path));
+        let input = input
+            .read(year, day.day)
+            .expect("unable to open input")
+            .expect("input file not found");
         let name_one = format!("{:02}-{}", day.day, 1);
         let name_two = format!("{:02}-{}", day.day, 2);
         group.bench_function(&name_one, |b| b.iter(|| (day.part_one)(&input)));

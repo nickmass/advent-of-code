@@ -40,7 +40,7 @@ impl Solution {
 }
 
 pub struct SolutionCollection {
-    solutions: Vec<Solution>,
+    pub solutions: Vec<Solution>,
 }
 
 impl SolutionCollection {

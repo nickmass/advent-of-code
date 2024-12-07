@@ -34,17 +34,19 @@ jobs:
         run: mkdir -p target/criterion && cargo run --release --features basic_profiler -- all > target/criterion/results.txt
         env:
           RUSTFLAGS: -Ctarget-cpu=native
+          AOC_INPUT_KEY: ${{ secrets.AOC_INPUT_KEY }}
       - name: Bench
         run: cargo bench --bench criterion -- --quick
         env:
           RUSTFLAGS: -Ctarget-cpu=native
+          AOC_INPUT_KEY: ${{ secrets.AOC_INPUT_KEY }}
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
           # Upload criterion reports
-          path: 'target/criterion'
+          path: "target/criterion"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1

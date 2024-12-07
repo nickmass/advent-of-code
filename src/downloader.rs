@@ -1,6 +1,9 @@
+use crate::Input;
+
 const USER_AGENT: &'static str = "aoc-submission-nickmass";
 
 pub struct InputDownloader {
+    input: Input,
     session_key: Option<String>,
     http_client: ureq::Agent,
 }
@@ -14,6 +17,7 @@ impl InputDownloader {
         let http_client = ureq::builder().user_agent(USER_AGENT).build();
 
         Self {
+            input: Input::new(),
             session_key,
             http_client,
         }
@@ -24,9 +28,7 @@ impl InputDownloader {
         event: u32,
         day: u32,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let path = std::path::PathBuf::from(format!("input/year_{}/day_{:02}.txt", event, day));
-        if path.exists() {
-            let input = std::fs::read_to_string(&path)?;
+        if let Some(input) = self.input.read(event, day)? {
             Ok(input)
         } else {
             eprintln!("downloading {} day {}.", event, day);
@@ -39,8 +41,7 @@ impl InputDownloader {
             let res = self.http_client.get(&url).set("cookie", &auth).call()?;
 
             let input = res.into_string()?;
-            std::fs::create_dir_all(&path.parent().expect("input path should have parent"))?;
-            std::fs::write(&path, &input)?;
+            self.input.save(event, day, &input)?;
 
             eprintln!("Sample input:");
             for line in input.lines().take(10) {

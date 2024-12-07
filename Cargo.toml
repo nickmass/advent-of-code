@@ -11,8 +11,10 @@ name = "advent"
 basic_profiler = []
 
 [dependencies]
-ureq = "2.8"
+ureq = "2.12"
 ahash = "0.8"
+aws-lc-rs = "1.11.1"
+base64 = "0.22.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 perf-event = "0.4"
