@@ -120,7 +120,9 @@ impl CellMap {
         let y = y as usize;
         let idx = (y * self.stride) + x;
         let mut cell = self.cells.get_mut(idx);
-        cell.as_mut().map(|c| **c = c.saturating_add(1));
+        if let Some(cell) = cell.as_mut() {
+            **cell = cell.saturating_add(1);
+        }
         cell.copied()
     }
 }

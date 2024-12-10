@@ -25,7 +25,7 @@ pub fn part_one(input: &str) -> u64 {
                 position = target_pos;
             }
             intcode::Interrupt::Input => {
-                if current_path.len() == 0 {
+                if current_path.is_empty() {
                     current_path = match map.route_nearest_tile(position, Tile::Unknown) {
                         Some(route) => route,
                         None => break,
@@ -85,7 +85,7 @@ pub fn part_two(input: &str) -> u64 {
                 position = target_pos;
             }
             intcode::Interrupt::Input => {
-                if current_path.len() == 0 {
+                if current_path.is_empty() {
                     current_path = match map.route_nearest_tile(position, Tile::Unknown) {
                         Some(route) => route,
                         None => break,
@@ -184,15 +184,12 @@ impl RobotMap {
             .map
             .iter()
             .filter(|(_p, t)| **t != Tile::Wall)
-            .map(|(k, _v)| k.clone())
+            .map(|(k, _v)| *k)
             .collect();
         let mut unknowns = HashSet::new();
         for node in unvisited.iter().flat_map(|p| point_neighbors(*p)) {
-            match self.get(node) {
-                Tile::Unknown => {
-                    unknowns.insert(node);
-                }
-                _ => (),
+            if let Tile::Unknown = self.get(node) {
+                unknowns.insert(node);
             }
         }
 
@@ -200,10 +197,11 @@ impl RobotMap {
             unvisited.insert(unknown);
         }
 
-        let mut distances: HashMap<_, _> =
-            unvisited.iter().map(|k| (k.clone(), i32::MAX)).collect();
+        let mut distances: HashMap<_, _> = unvisited.iter().map(|k| (*k, i32::MAX)).collect();
 
-        distances.get_mut(&current_point).map(|d| *d = 0);
+        if let Some(d) = distances.get_mut(&current_point) {
+            *d = 0;
+        }
 
         loop {
             let current_distance = distances.get(&current_point).cloned().unwrap();
@@ -232,7 +230,7 @@ impl RobotMap {
                 .iter()
                 .flat_map(|p| distances.get(p).map(|d| (p, d)))
                 .min_by_key(|(_p, d)| *d)
-                .map(|(p, _d)| p.clone())
+                .map(|(p, _d)| *p)
                 .unwrap();
         }
 
@@ -255,11 +253,11 @@ impl RobotMap {
 
         let mut next: Point2<i32> = *dest;
         loop {
-            route.push(next.clone());
+            route.push(next);
             next = point_neighbors(next)
                 .filter_map(|p| distances.get(&p).map(|d| (p, *d)))
                 .min_by_key(|(_p, d)| *d)
-                .map(|(p, _d)| p.clone())
+                .map(|(p, _d)| p)
                 .unwrap();
 
             if next == point {

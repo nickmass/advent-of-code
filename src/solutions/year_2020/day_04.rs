@@ -110,8 +110,8 @@ impl PassportValidator for PassportHeightValidator {
     fn validate(&self, val: &str) -> bool {
         let parsed = take_u64(val);
         match parsed {
-            Some(("in", num)) if num >= 59 && num <= 76 => true,
-            Some(("cm", num)) if num >= 150 && num <= 193 => true,
+            Some(("in", num)) if (59..=76).contains(&num) => true,
+            Some(("cm", num)) if (150..=193).contains(&num) => true,
             _ => false,
         }
     }
@@ -122,7 +122,7 @@ impl PassportValidator for PassportHairColorValidator {
     fn validate(&self, val: &str) -> bool {
         let parsed = take_char(val);
         if let Some((s, '#')) = parsed {
-            s.len() == 6 && s.chars().all(|c| c.is_digit(16))
+            s.len() == 6 && s.chars().all(|c| c.is_ascii_hexdigit())
         } else {
             false
         }
@@ -132,17 +132,14 @@ impl PassportValidator for PassportHairColorValidator {
 struct PassportEyeColorValidator;
 impl PassportValidator for PassportEyeColorValidator {
     fn validate(&self, val: &str) -> bool {
-        match val {
-            "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" => true,
-            _ => false,
-        }
+        matches!(val, "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth")
     }
 }
 
 struct PassportIdValidator;
 impl PassportValidator for PassportIdValidator {
     fn validate(&self, val: &str) -> bool {
-        val.len() == 9 && val.chars().all(|c| c.is_digit(10))
+        val.len() == 9 && val.chars().all(|c| c.is_ascii_digit())
     }
 }
 

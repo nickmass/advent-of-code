@@ -10,7 +10,7 @@ pub fn part_one(input: &str) -> u64 {
     for line in lines {
         let mut split = line
             .split(&['[', ']', '=', ' '][..])
-            .filter(|w| w.trim().len() > 0);
+            .filter(|w| !w.trim().is_empty());
         let op = split.next().unwrap();
 
         match op {
@@ -65,7 +65,7 @@ pub fn part_two(input: &str) -> u64 {
     for line in lines {
         let mut split = line
             .split(&['[', ']', '=', ' '][..])
-            .filter(|w| w.trim().len() > 0);
+            .filter(|w| !w.trim().is_empty());
 
         let op = split.next().unwrap();
         match op {
@@ -120,7 +120,7 @@ impl Mask {
                 }
             }
         }
-        let permutations = 2u64.pow(floating_mask.count_ones() as u32);
+        let permutations = 2u64.pow(floating_mask.count_ones());
         let limit = 36.min(64 - floating_mask.leading_zeros()) as u64;
 
         let mut floating_masks = Vec::with_capacity(permutations as usize);
@@ -148,7 +148,7 @@ impl Mask {
         }
     }
 
-    fn addrs<'s>(&'s self, mut addr: u64) -> impl 's + Iterator<Item = u64> {
+    fn addrs(&self, mut addr: u64) -> impl Iterator<Item = u64> + '_ {
         addr &= self.and_mask;
         addr |= self.or_mask;
         self.floating_masks.iter().map(move |mask| addr | *mask)

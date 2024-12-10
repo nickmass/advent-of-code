@@ -127,7 +127,7 @@ pub struct Metrics {
 
 impl Metrics {
     pub fn display(&self, detailed: bool) -> MetricsDisplay {
-        MetricsDisplay(detailed, &self)
+        MetricsDisplay(detailed, self)
     }
 }
 

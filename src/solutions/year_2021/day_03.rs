@@ -25,8 +25,7 @@ pub fn part_one(input: &str) -> u64 {
     let mut gamma = 0;
     let mut epi = 0;
 
-    for n in 0..line_len {
-        let o = one_count[n];
+    for &o in one_count.iter().take(line_len) {
         let z = line_count - o;
 
         gamma <<= 1;

@@ -50,7 +50,7 @@ impl Map {
                 cells.push(cell);
             }
 
-            if line.len() > 0 {
+            if !line.is_empty() {
                 height += 1;
             } else {
                 panic!()
@@ -82,7 +82,7 @@ impl Map {
         }
     }
 
-    fn neighbors<'a>(&'a self, x: i32, y: i32) -> impl Iterator<Item = (Cell, i32, i32)> + 'a {
+    fn neighbors(&self, x: i32, y: i32) -> impl Iterator<Item = (Cell, i32, i32)> + '_ {
         let mut i = 0;
         std::iter::from_fn(move || loop {
             let (x, y) = match i {
@@ -306,7 +306,7 @@ impl Graph {
         }
     }
 
-    fn edges<'a>(&'a self, node: Node) -> impl Iterator<Item = Edge> + 'a {
+    fn edges(&self, node: Node) -> impl Iterator<Item = Edge> + '_ {
         let node_id = self.node_map.get(&node).unwrap();
         let edge_id = self.edge_map.get(&node).unwrap();
         let mut i = edge_id.0;
@@ -324,10 +324,10 @@ impl Graph {
         })
     }
 
-    fn recursive_edges<'a>(
-        &'a self,
+    fn recursive_edges(
+        &self,
         RecursiveNode(node, depth): RecursiveNode,
-    ) -> impl Iterator<Item = RecursiveEdge> + 'a {
+    ) -> impl Iterator<Item = RecursiveEdge> + '_ {
         self.edges(node).filter_map(move |edge| {
             if let Some(right_node) = self.nodes.get(edge.right.0) {
                 return match edge.class {
@@ -408,7 +408,7 @@ impl Graph {
 struct Ordered<T>(i32, T);
 impl<T: Eq> std::cmp::PartialOrd for Ordered<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.0.partial_cmp(&self.0)
+        Some(self.cmp(other))
     }
 }
 impl<T: Eq> std::cmp::Ord for Ordered<T> {

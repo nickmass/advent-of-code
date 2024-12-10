@@ -144,7 +144,7 @@ impl Map {
             left.then_some(Movement::Left),
         ]
         .into_iter()
-        .filter_map(|m| m)
+        .flatten()
     }
 
     fn valid_for_tick(&mut self, tick: isize, pos: Point) -> bool {

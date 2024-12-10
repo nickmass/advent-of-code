@@ -83,20 +83,7 @@ impl HeapItem {
 
 impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let my_score = self
-            .f_scores
-            .borrow()
-            .get(&self.node.point)
-            .copied()
-            .unwrap_or(u32::MAX as u64);
-        let other_score = self
-            .f_scores
-            .borrow()
-            .get(&other.node.point)
-            .copied()
-            .unwrap_or(u32::MAX as u64);
-
-        my_score.partial_cmp(&other_score)
+        Some(self.cmp(other))
     }
 }
 
@@ -207,7 +194,7 @@ impl Map {
         ((point.0 - other.0).abs() + (point.1 - other.1).abs()) as u64
     }
 
-    fn neighbors<'a>(&'a self, (x, y): (i64, i64)) -> impl IntoIterator<Item = Node> + 'a {
+    fn neighbors(&self, (x, y): (i64, i64)) -> impl IntoIterator<Item = Node> + '_ {
         [(x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y)]
             .into_iter()
             .filter_map(|p| self.node(p))

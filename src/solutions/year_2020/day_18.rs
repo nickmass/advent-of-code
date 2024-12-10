@@ -43,7 +43,7 @@ fn eval_expression(expression: &str, equal_precedence: bool) -> u64 {
     let mut value_builder = None;
     for c in expression.chars() {
         if c.is_ascii_digit() {
-            let v = (c as u8 - '0' as u8) as u64;
+            let v = (c as u8 - b'0') as u64;
             value_builder = Some((value_builder.unwrap_or(0) * 10) + v);
         } else if let Some(val) = value_builder {
             tokens.push(Token::Value(val));

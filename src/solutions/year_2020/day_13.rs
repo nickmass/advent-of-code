@@ -38,23 +38,19 @@ pub fn part_two(input: &str) -> u64 {
         }
     });
 
-    let mut t_off = 0;
     let mut bus_reqs = Vec::new();
     let mut max_bus = 0;
     let mut max_bus_offset = 0;
-    for bus in buses {
-        match bus {
-            Bus::Id(n) => {
-                if n > max_bus {
-                    max_bus = n;
-                    max_bus_offset = t_off;
-                }
-
-                bus_reqs.push((n, t_off));
+    for (t_off, bus) in buses.enumerate() {
+        let t_off = t_off as u64;
+        if let Bus::Id(n) = bus {
+            if n > max_bus {
+                max_bus = n;
+                max_bus_offset = t_off;
             }
-            _ => (),
+
+            bus_reqs.push((n, t_off));
         }
-        t_off += 1;
     }
 
     let mut step_by = max_bus;

@@ -5,7 +5,7 @@ pub fn part_one(input: &str) -> u64 {
     let mut cur = 0;
 
     for line in lines.chain(std::iter::once("")) {
-        if line.len() == 0 {
+        if line.is_empty() {
             if cur > max {
                 max = cur;
             }
@@ -26,7 +26,7 @@ pub fn part_two(input: &str) -> u64 {
     let mut cur = 0;
 
     for line in lines.chain(std::iter::once("")) {
-        if line.len() == 0 {
+        if line.is_empty() {
             if cur > max[0] {
                 max[2] = max[1];
                 max[1] = max[0];

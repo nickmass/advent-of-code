@@ -11,7 +11,7 @@ pub fn part_one(input: &str) -> i64 {
         let mut distance = 0;
 
         for crab in crabs.iter() {
-            distance += (*crab - n as i64).abs()
+            distance += (*crab - n).abs()
         }
 
         min_dist = min_dist.min(distance);
@@ -33,7 +33,7 @@ pub fn part_two(input: &str) -> i64 {
         let mut distance = 0;
 
         for crab in crabs.iter() {
-            let steps = (*crab - n as i64).abs();
+            let steps = (*crab - n).abs();
             let sum = if steps & 1 == 0 {
                 (steps / 2) * (steps + 1)
             } else {

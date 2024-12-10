@@ -174,7 +174,7 @@ impl Hand {
     }
 
     fn pop(&mut self) -> u8 {
-        if self.len() == 0 {
+        if self.is_empty() {
             panic!("popped card from empty hand")
         } else {
             let res = self.cards[(self.cursor & 0x3f) as usize];

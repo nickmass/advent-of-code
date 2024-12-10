@@ -1,7 +1,7 @@
 pub fn part_one(input: &str) -> i64 {
     input
         .lines()
-        .map(|l| OasisDiffTree::new(l))
+        .map(OasisDiffTree::new)
         .map(|l| l.rows().fold(0, |acc, row| row.last() + acc))
         .sum()
 }
@@ -9,7 +9,7 @@ pub fn part_one(input: &str) -> i64 {
 pub fn part_two(input: &str) -> i64 {
     input
         .lines()
-        .map(|l| OasisDiffTree::new(l))
+        .map(OasisDiffTree::new)
         .map(|l| l.rows().fold(0, |acc, row| row.first() - acc))
         .sum()
 }
@@ -32,7 +32,7 @@ impl OasisDiffTree {
             for i in n..m {
                 let x = diffs[i];
                 if let Some(prev) = prev {
-                    let diff = x - prev as i64;
+                    let diff = x - prev;
                     diffs.push(diff);
                     if diff != 0 {
                         all_zero = false;
@@ -55,7 +55,7 @@ impl OasisDiffTree {
         }
     }
 
-    fn rows<'a>(&'a self) -> impl Iterator<Item = DiffRow<'a>> + 'a {
+    fn rows(&self) -> impl Iterator<Item = DiffRow<'_>> {
         let mut n = self.values.len();
         let mut next_len = self.final_len;
 

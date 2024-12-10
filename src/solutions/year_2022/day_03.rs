@@ -18,7 +18,7 @@ pub fn part_one(input: &str) -> u64 {
 }
 
 pub fn part_two(input: &str) -> u64 {
-    let mut lines = input.trim().lines().into_iter();
+    let mut lines = input.trim().lines();
 
     let mut sum = 0;
     'outer: while let Some(first) = lines.next() {

@@ -5,7 +5,7 @@ pub fn part_one(input: &str) -> usize {
 pub fn solve_part_one<const WIDTH: usize, const HEIGHT: usize>(input: &str) -> usize {
     let layers = input.trim().as_bytes().chunks(WIDTH * HEIGHT);
 
-    let mut result = (std::usize::MAX, 0);
+    let mut result = (usize::MAX, 0);
     for layer in layers {
         let mut counts = [0; 3];
 
@@ -16,7 +16,7 @@ pub fn solve_part_one<const WIDTH: usize, const HEIGHT: usize>(input: &str) -> u
             .filter(|&n| n < 3)
             .for_each(|i| counts[i] += 1);
 
-        let zeros = counts.get(0).copied().unwrap_or(0);
+        let zeros = counts.first().copied().unwrap_or(0);
         if zeros < result.0 {
             let ones = counts.get(1).copied().unwrap_or(0);
             let twos = counts.get(2).copied().unwrap_or(0);
@@ -38,7 +38,7 @@ pub fn solve_part_two<const WIDTH: usize, const HEIGHT: usize>(input: &str) -> S
     let mut canvas = vec![false; WIDTH * HEIGHT];
 
     for layer in layers {
-        for (index, pixel) in layer.into_iter().enumerate() {
+        for (index, pixel) in layer.iter().enumerate() {
             canvas[index] = match pixel {
                 b'0' => false,
                 b'1' => true,

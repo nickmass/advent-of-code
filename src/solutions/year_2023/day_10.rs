@@ -137,9 +137,7 @@ impl Map {
         let cur_pipe = self.get_pipe(x, y);
 
         std::iter::from_fn(move || loop {
-            let Some(cur_pipe) = cur_pipe else {
-                return None;
-            };
+            let cur_pipe = cur_pipe?;
 
             let dir = match i {
                 0 => Direction::North,

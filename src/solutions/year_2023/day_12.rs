@@ -111,7 +111,7 @@ impl ConditionRecord {
                 result += count;
             }
         }
-        result as u64
+        result
     }
 
     fn paths_to_next_pattern(&self, mut stack: Vec<StackEntry>) -> HashMap<StackEntry, u64> {
@@ -248,9 +248,7 @@ impl ConditionRecord {
             entry.pattern_idx += 1;
         }
 
-        let result = entry.pattern_idx == self.pattern.len();
-
-        result
+        entry.pattern_idx == self.pattern.len()
     }
 }
 

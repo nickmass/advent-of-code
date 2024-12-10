@@ -1,6 +1,6 @@
 pub fn part_one(mut input: &str) -> u32 {
     let mut sum = 0;
-    while input.len() > 0 {
+    while !input.is_empty() {
         let (s, n) = match_mul(input);
         input = s;
         sum += n.unwrap_or(0);
@@ -12,7 +12,7 @@ pub fn part_one(mut input: &str) -> u32 {
 pub fn part_two(mut input: &str) -> u32 {
     let mut sum = 0;
     let mut enabled = true;
-    while input.len() > 0 {
+    while !input.is_empty() {
         if let Some(s) = match_token(input, "do()") {
             input = s;
             enabled = true;
@@ -53,7 +53,7 @@ fn match_mul(s: &str) -> (&str, Option<u32>) {
         return (s, None);
     };
 
-    (&s, Some(a * b))
+    (s, Some(a * b))
 }
 
 fn match_token<'a>(s: &'a str, token: &str) -> Option<&'a str> {

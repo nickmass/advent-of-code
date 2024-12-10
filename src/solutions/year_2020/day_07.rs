@@ -98,7 +98,7 @@ fn search_bags<S: AsRef<str>>(
 
     let mut sum = count;
     for (k, v) in bag {
-        sum += search_bags(&bags, k, v * count);
+        sum += search_bags(bags, k, v * count);
     }
 
     sum

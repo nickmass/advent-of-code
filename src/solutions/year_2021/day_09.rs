@@ -129,7 +129,6 @@ struct CellMap {
 impl CellMap {
     fn new(width: usize, height: usize) -> Self {
         let stride = width;
-        let height = height;
         let cells = vec![None; width * height];
 
         CellMap {
@@ -147,14 +146,12 @@ impl CellMap {
             let y = y as usize;
 
             let idx = (y * self.stride) + x;
-            self.cells.get(idx).and_then(|n| n.clone())
+            self.cells.get(idx).copied().flatten()
         }
     }
 
     fn insert(&mut self, (x, y): (i32, i32), value: u32) {
-        if x < 0 || y < 0 || x as usize >= self.stride || y as usize >= self.height {
-            return;
-        } else {
+        if x >= 0 && y >= 0 && (x as usize) < self.stride && (y as usize) < self.height {
             let x = x as usize;
             let y = y as usize;
 

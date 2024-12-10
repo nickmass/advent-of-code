@@ -7,11 +7,7 @@ pub fn part_two(input: &str) -> u64 {
 }
 
 fn solver<const DAYS: usize>(input: &str) -> u64 {
-    let nums = input
-        .trim()
-        .split(',')
-        .filter_map(|n| n.parse::<u8>().ok())
-        .map(|n| (n));
+    let nums = input.trim().split(',').filter_map(|n| n.parse::<u8>().ok());
 
     let mut day_counts = vec![0u64; DAYS + 8];
 

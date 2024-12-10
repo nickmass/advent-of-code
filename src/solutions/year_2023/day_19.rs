@@ -95,9 +95,7 @@ impl<'a> WorkflowMap<'a> {
         let mut i = 0;
 
         std::iter::from_fn(move || {
-            let Some((start_idx, end_idx)) = workflow else {
-                return None;
-            };
+            let (start_idx, end_idx) = workflow?;
 
             if i + start_idx == end_idx {
                 return None;
@@ -293,13 +291,13 @@ impl<'a> Rule<'a> {
                 let lhs = item.get(p);
                 let (pass, fail) = op.apply_range(lhs, v);
                 let pass = pass.map(|r| {
-                    let mut item = item.clone();
+                    let mut item = *item;
                     item.set(p, r);
                     (item, self.outcome)
                 });
 
                 let fail = fail.map(|r| {
-                    let mut item = item.clone();
+                    let mut item = *item;
                     item.set(p, r);
                     item
                 });
@@ -326,14 +324,14 @@ impl<'a> TryFrom<&'a str> for Rule<'a> {
         if let Some((param, rest, op)) = less.or(greater) {
             let (value, outcome) = rest.split_once(':').ok_or(RuleParseErr)?;
             let value = value.parse().map_err(|_| RuleParseErr)?;
-            let outcome = outcome.try_into().map_err(|_| RuleParseErr)?;
+            let outcome = outcome.into();
             let param = param.parse().map_err(|_| RuleParseErr)?;
             let condition = Condition::Apply(param, op, value);
 
             Ok(Rule { condition, outcome })
         } else {
             let condition = Condition::Default;
-            let outcome = value.try_into().map_err(|_| RuleParseErr)?;
+            let outcome = value.into();
 
             Ok(Rule { condition, outcome })
         }

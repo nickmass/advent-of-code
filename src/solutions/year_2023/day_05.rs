@@ -76,7 +76,7 @@ pub fn part_two(input: &str) -> i64 {
         let mut changed = true;
         while changed {
             changed = false;
-            for mapping in mappings.iter().copied() {
+            for mapping in mappings.iter() {
                 for range in ranges.drain(..) {
                     let (pre, forward, post) = mapping.apply(range);
 
@@ -92,7 +92,7 @@ pub fn part_two(input: &str) -> i64 {
             }
         }
 
-        ranges.extend(forwards.drain(..));
+        ranges.append(&mut forwards);
     }
 
     ranges.into_iter().map(|r| r.start).min().unwrap_or(0)

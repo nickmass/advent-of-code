@@ -6,11 +6,8 @@ fn solve_part_one<const LOW: i128, const HIGH: i128>(input: &str) -> u64 {
     let stones: Vec<_> = input.trim().lines().map(Hailstone::new).collect();
     let mut count = 0;
 
-    for i in 0..stones.len() {
-        let stone = stones[i];
-        for j in (i + 1)..stones.len() {
-            let other = stones[j];
-
+    for (i, &stone) in stones.iter().enumerate() {
+        for &other in stones.iter().skip(i + 1) {
             if stone.intersect::<LOW, HIGH>(other) {
                 count += 1;
             }

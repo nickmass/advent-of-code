@@ -1,9 +1,5 @@
 pub fn part_one(input: &str) -> usize {
-    let cups = input
-        .trim()
-        .chars()
-        .map(|n| (n as u8 - b'0') as usize)
-        .chain(10..=9);
+    let cups = input.trim().chars().map(|n| (n as u8 - b'0') as usize);
 
     let mut cup_game = CupGame::new(cups, 9, 100);
     cup_game.part_one()

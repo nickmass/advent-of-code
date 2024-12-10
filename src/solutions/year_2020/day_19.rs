@@ -4,7 +4,7 @@ pub fn part_one(input: &str) -> usize {
     let mut lines = input.trim().lines();
     let mut rules = RuleCollection::new();
     for line in lines.by_ref() {
-        if line.len() == 0 {
+        if line.is_empty() {
             break;
         }
         rules.insert(line);
@@ -17,7 +17,7 @@ pub fn part_two(input: &str) -> usize {
     let mut lines = input.trim().lines();
     let mut rules = RuleCollection::new();
     for line in lines.by_ref() {
-        if line.len() == 0 {
+        if line.is_empty() {
             break;
         }
         rules.insert(line);
@@ -75,7 +75,7 @@ impl std::str::FromStr for Rule {
                     stage = Stage::Char;
                 }
                 c if c.is_ascii_digit() && stage != Stage::Char => {
-                    num = Some((num.unwrap_or(0) * 10) + (c as u8 - '0' as u8) as CnfRuleId);
+                    num = Some((num.unwrap_or(0) * 10) + (c as u8 - b'0') as CnfRuleId);
                 }
                 c if c.is_whitespace() => {
                     if let Some(next) = num {
@@ -243,30 +243,34 @@ impl RuleCollection {
                             map: &mut Vec<(CnfRuleId, CnfRule)>,
                             list: &mut Vec<CnfRuleId>,
                             idx: &mut CnfRuleId| {
-            if list.len() == 2 {
-                map.push((rule_id, CnfRule::Producer(list[0], list[1])));
-            } else if list.len() > 2 {
-                list.reverse();
-                let mut previous = None;
-                while let Some(item) = list.pop() {
-                    if let Some(prev) = previous {
-                        let id = if list.len() == 0 {
-                            rule_id
+            match list.len().cmp(&2) {
+                std::cmp::Ordering::Equal => {
+                    map.push((rule_id, CnfRule::Producer(list[0], list[1])));
+                }
+                std::cmp::Ordering::Greater => {
+                    list.reverse();
+                    let mut previous = None;
+                    while let Some(item) = list.pop() {
+                        if let Some(prev) = previous {
+                            let id = if list.is_empty() {
+                                rule_id
+                            } else {
+                                *idx -= 1;
+                                *idx
+                            };
+                            map.push((id, CnfRule::Producer(prev, item)));
+                            previous = Some(id);
                         } else {
-                            *idx -= 1;
-                            *idx
-                        };
-                        map.push((id, CnfRule::Producer(prev, item)));
-                        previous = Some(id);
-                    } else {
-                        previous = Some(item);
+                            previous = Some(item);
+                        }
                     }
                 }
-            } else {
-                panic!(
-                    "single or empty rules not supported: {} {:?}",
-                    rule_id, list
-                )
+                std::cmp::Ordering::Less => {
+                    panic!(
+                        "single or empty rules not supported: {} {:?}",
+                        rule_id, list
+                    )
+                }
             }
         };
 
@@ -322,8 +326,8 @@ impl RuleCollection {
                 for p in 1..=l - 1 {
                     let b_idx = (p - 1, s - 1);
                     let c_idx = (l - p - 1, s + p - 1);
-                    if cyk_table[b_idx.0][b_idx.1].len() == 0
-                        || cyk_table[c_idx.0][c_idx.1].len() == 0
+                    if cyk_table[b_idx.0][b_idx.1].is_empty()
+                        || cyk_table[c_idx.0][c_idx.1].is_empty()
                     {
                         continue;
                     }
@@ -350,11 +354,8 @@ impl RuleCollection {
             let mut state = MatchState { idx: 0 };
             let chars: Vec<_> = s.chars().collect();
             let is_match = self.is_match(r0, &chars, &mut state);
-            if is_match && state.idx == s.len() {
-                true
-            } else {
-                false
-            }
+
+            is_match && state.idx == s.len()
         } else {
             false
         }

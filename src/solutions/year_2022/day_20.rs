@@ -31,7 +31,7 @@ impl<const COUNT: usize, const KEY: isize> Mixer<COUNT, KEY> {
             .filter_map(|l| l.parse::<isize>().ok())
             .enumerate()
         {
-            let p = if let Some(prev) = prev { prev } else { 0 };
+            let p = prev.unwrap_or_default();
             prev = Some(idx);
 
             if value == 0 {
@@ -52,33 +52,35 @@ impl<const COUNT: usize, const KEY: isize> Mixer<COUNT, KEY> {
         for _ in 0..COUNT {
             for me in 0..len {
                 let item = items[me];
-                let max = item.value.abs() as usize % (len - 1);
-                let (new_prev, new_next) = if item.value < 0 {
-                    let mut new_idx = me;
-                    for _ in 0..max {
-                        new_idx = items[new_idx].prev;
-                        if new_idx == me {
+                let max = item.value.unsigned_abs() % (len - 1);
+                let (new_prev, new_next) = match item.value.cmp(&0) {
+                    std::cmp::Ordering::Less => {
+                        let mut new_idx = me;
+                        for _ in 0..max {
                             new_idx = items[new_idx].prev;
+                            if new_idx == me {
+                                new_idx = items[new_idx].prev;
+                            }
                         }
-                    }
 
-                    let prev = items[new_idx].prev;
-                    let next = new_idx;
-                    (prev, next)
-                } else if item.value > 0 {
-                    let mut new_idx = me;
-                    for _ in 0..max {
-                        new_idx = items[new_idx].next;
-                        if new_idx == me {
+                        let prev = items[new_idx].prev;
+                        let next = new_idx;
+                        (prev, next)
+                    }
+                    std::cmp::Ordering::Greater => {
+                        let mut new_idx = me;
+                        for _ in 0..max {
                             new_idx = items[new_idx].next;
+                            if new_idx == me {
+                                new_idx = items[new_idx].next;
+                            }
                         }
-                    }
 
-                    let prev = new_idx;
-                    let next = items[new_idx].next;
-                    (prev, next)
-                } else {
-                    continue;
+                        let prev = new_idx;
+                        let next = items[new_idx].next;
+                        (prev, next)
+                    }
+                    std::cmp::Ordering::Equal => continue,
                 };
 
                 let next = item.next;
@@ -121,7 +123,7 @@ impl<'a> Iterator for MixerIter<'a> {
     type Item = isize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let item = self.items[self.position as usize];
+        let item = self.items[self.position];
         let v = item.value;
         self.position = item.next;
 

@@ -68,11 +68,7 @@ impl Hand {
 
         counts.sort_by_key(|c| c.map(|c| c.1).unwrap_or(0));
 
-        let mut counts = counts
-            .into_iter()
-            .rev()
-            .filter_map(|c| c)
-            .map(|(_, count)| count);
+        let mut counts = counts.into_iter().rev().flatten().map(|(_, count)| count);
 
         let a = counts.next().unwrap_or(0);
         let b = counts.next().unwrap_or(0);
@@ -104,7 +100,7 @@ impl std::cmp::Ord for Hand {
                 }
                 std::cmp::Ordering::Equal
             }
-            cmp => return cmp,
+            cmp => cmp,
         }
     }
 }

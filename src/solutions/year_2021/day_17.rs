@@ -50,11 +50,7 @@ impl Target {
     fn new(input: &str) -> Self {
         let mut parts = input
             .trim()
-            .split(|c| match c {
-                '0'..='9' => false,
-                '-' => false,
-                _ => true,
-            })
+            .split(|c: char| !c.is_ascii_digit() && c != '-')
             .filter(|s| !s.is_empty())
             .filter_map(|n| n.parse::<i64>().ok());
 

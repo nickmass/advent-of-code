@@ -6,8 +6,8 @@ pub struct Encryption {
     key_bytes: Vec<u8>,
 }
 
-const KEYFILE_PATH: &'static str = ".input-key";
-const KEYFILE_ENV: &'static str = "AOC_INPUT_KEY";
+const KEYFILE_PATH: &str = ".input-key";
+const KEYFILE_ENV: &str = "AOC_INPUT_KEY";
 
 #[derive(Debug, Copy, Clone)]
 pub struct EncryptError;
@@ -29,7 +29,7 @@ impl std::error::Error for EncryptError {}
 impl Encryption {
     pub fn new() -> Option<Self> {
         let key_str = std::env::var(KEYFILE_ENV).ok().or(read_keyfile())?;
-        let key_bytes = BASE64_STANDARD.decode(&key_str.trim()).unwrap();
+        let key_bytes = BASE64_STANDARD.decode(key_str.trim()).unwrap();
         let _key = UnboundKey::new(&AES_128_GCM, &key_bytes).unwrap();
 
         Some(Self { key_bytes })

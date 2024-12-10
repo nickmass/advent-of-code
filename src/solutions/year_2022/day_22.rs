@@ -227,7 +227,7 @@ impl Map for FlatMap {
 
     fn normalize(&self, facing: Facing, (x, y): (isize, isize)) -> (Facing, (usize, usize)) {
         let x = if x < 0 {
-            let x = x.abs() as usize;
+            let x = x.unsigned_abs();
             (self.width - (x % self.width)) % self.width
         } else {
             let x = x as usize;
@@ -235,7 +235,7 @@ impl Map for FlatMap {
         };
 
         let y = if y < 0 {
-            let y = y.abs() as usize;
+            let y = y.unsigned_abs();
             (self.height - (y % self.height)) % self.height
         } else {
             let y = y as usize;
@@ -512,7 +512,7 @@ impl<const N: usize> CubeMap<N> {
                 }
             }
 
-            if faces.len() == 0 && search.len() == 0 {
+            if faces.is_empty() && search.is_empty() {
                 let mut cursor = cursor;
                 cursor.0 += N as isize;
                 if cursor.0 >= map.width as isize {
@@ -578,8 +578,8 @@ impl<const N: usize> Map for CubeMap<N> {
         let next_position = self.step(facing, position);
 
         match self.get(next_position) {
-            Cell::Open => return MoveResult::Clear(next_position),
-            Cell::Wall => return MoveResult::Blocked(position),
+            Cell::Open => MoveResult::Clear(next_position),
+            Cell::Wall => MoveResult::Blocked(position),
             Cell::Void => unreachable!(),
         }
     }

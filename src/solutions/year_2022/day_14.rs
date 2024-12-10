@@ -2,7 +2,7 @@ pub fn part_one(input: &str) -> u64 {
     let mut grid = Grid::new(input, false);
 
     let mut count = 0;
-    while let Some(_) = grid.drop() {
+    while grid.drop().is_some() {
         count += 1;
     }
 
@@ -13,7 +13,7 @@ pub fn part_two(input: &str) -> u64 {
     let mut grid = Grid::new(input, true);
 
     let mut count = 0;
-    while let Some(_) = grid.drop() {
+    while grid.drop().is_some() {
         count += 1;
     }
 

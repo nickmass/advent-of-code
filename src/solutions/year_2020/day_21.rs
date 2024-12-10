@@ -17,7 +17,7 @@ pub fn part_one(input: &str) -> u64 {
                 .entry(allergen)
                 .and_modify(|potential_ingredients| {
                     let mut union: Vec<&str> = Vec::new();
-                    for ingredient in potential_ingredients.into_iter() {
+                    for ingredient in potential_ingredients.iter_mut() {
                         if ingredients.contains(*ingredient) {
                             union.push(*ingredient);
                         }
@@ -25,7 +25,7 @@ pub fn part_one(input: &str) -> u64 {
 
                     *potential_ingredients = union;
                 })
-                .or_insert_with(|| ingredients.iter().map(|s| *s).collect());
+                .or_insert_with(|| ingredients.iter().copied().collect());
         }
 
         for ingredient in ingredients {
@@ -62,7 +62,7 @@ pub fn part_two(input: &str) -> String {
                 .entry(allergen)
                 .and_modify(|potential_ingredients| {
                     let mut union: Vec<&str> = Vec::new();
-                    for ingredient in potential_ingredients.into_iter() {
+                    for ingredient in potential_ingredients.iter_mut() {
                         if ingredients.contains(*ingredient) {
                             union.push(*ingredient);
                         }
@@ -70,7 +70,7 @@ pub fn part_two(input: &str) -> String {
 
                     *potential_ingredients = union;
                 })
-                .or_insert_with(|| ingredients.iter().map(|s| *s).collect());
+                .or_insert_with(|| ingredients.iter().copied().collect());
         }
     }
 
@@ -78,7 +78,7 @@ pub fn part_two(input: &str) -> String {
 
     while allergen_mapping.len() < all_allergens.len() {
         for (allergen, potential_ingredients) in all_allergens.iter_mut() {
-            if potential_ingredients.len() == 0 {
+            if potential_ingredients.is_empty() {
                 continue;
             }
 

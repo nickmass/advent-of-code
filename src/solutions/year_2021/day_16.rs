@@ -15,7 +15,7 @@ fn parse_packets(input: &str) -> Vec<Packet> {
     let mut packets = Vec::new();
     let mut parse_stack: Vec<(usize, Argument)> = Vec::new();
 
-    while packets.len() == 0 || parse_stack.len() > 0 {
+    while packets.is_empty() || !parse_stack.is_empty() {
         let mut size = 6;
         let version = reader.take_bits(3).unwrap();
         let type_id = reader.take_bits(3).unwrap();
@@ -65,22 +65,18 @@ fn parse_packets(input: &str) -> Vec<Packet> {
         packets.push(packet);
 
         if let Some((parent_id, args_type)) = parse_stack.last_mut() {
-            packets
-                .get_mut(*parent_id)
-                .map(|parent| parent.push_arg(id));
+            if let Some(parent) = packets.get_mut(*parent_id) {
+                parent.push_arg(id);
+            }
 
-            match args_type {
-                Argument::Packets(packets) => {
-                    *packets -= 1;
-                }
-                _ => (),
+            if let Argument::Packets(packets) = args_type {
+                *packets -= 1;
             }
         }
 
         for arg in parse_stack.iter_mut() {
-            match arg.1 {
-                Argument::Bits(ref mut bits) => *bits -= size,
-                _ => (),
+            if let Argument::Bits(ref mut bits) = arg.1 {
+                *bits -= size;
             }
         }
 
@@ -144,34 +140,34 @@ impl Packet {
     fn eval(&self, packets: &[Packet]) -> u64 {
         match self {
             Packet::Literal(_, v) => *v,
-            Packet::Sum(_, args) => args.iter().map(|id| packets[*id].eval(&packets)).sum(),
-            Packet::Product(_, args) => args.iter().map(|id| packets[*id].eval(&packets)).product(),
+            Packet::Sum(_, args) => args.iter().map(|id| packets[*id].eval(packets)).sum(),
+            Packet::Product(_, args) => args.iter().map(|id| packets[*id].eval(packets)).product(),
             Packet::Min(_, args) => args
                 .iter()
-                .map(|id| packets[*id].eval(&packets))
+                .map(|id| packets[*id].eval(packets))
                 .min()
                 .unwrap(),
             Packet::Max(_, args) => args
                 .iter()
-                .map(|id| packets[*id].eval(&packets))
+                .map(|id| packets[*id].eval(packets))
                 .max()
                 .unwrap(),
             Packet::Gt(_, args) => {
-                if packets[args[0]].eval(&packets) > packets[args[1]].eval(&packets) {
+                if packets[args[0]].eval(packets) > packets[args[1]].eval(packets) {
                     1
                 } else {
                     0
                 }
             }
             Packet::Lt(_, args) => {
-                if packets[args[0]].eval(&packets) < packets[args[1]].eval(&packets) {
+                if packets[args[0]].eval(packets) < packets[args[1]].eval(packets) {
                     1
                 } else {
                     0
                 }
             }
             Packet::Eq(_, args) => {
-                if packets[args[0]].eval(&packets) == packets[args[1]].eval(&packets) {
+                if packets[args[0]].eval(packets) == packets[args[1]].eval(packets) {
                     1
                 } else {
                     0
@@ -196,11 +192,7 @@ struct BitReader {
 
 impl BitReader {
     fn new(input: &str) -> BitReader {
-        let bytes: Vec<u8> = input
-            .as_bytes()
-            .chunks(2)
-            .filter_map(|b| to_byte(b))
-            .collect();
+        let bytes: Vec<u8> = input.as_bytes().chunks(2).filter_map(to_byte).collect();
 
         let cursor = 0;
         let next_byte = bytes[cursor];

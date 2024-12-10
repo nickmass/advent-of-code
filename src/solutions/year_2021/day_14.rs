@@ -44,7 +44,7 @@ fn solve_pair(
     generation: u64,
 ) -> CharacterCounts {
     if let Some(counts) = mapping.get(&(generation, left, right)) {
-        return counts.clone();
+        counts.clone()
     } else {
         if generation == 0 {
             let mut counts = CharacterCounts::new();
@@ -89,8 +89,8 @@ impl CharacterCounts {
     fn add(&self, other: CharacterCounts) -> CharacterCounts {
         let mut new_count = [0; 24];
 
-        for idx in 0..new_count.len() {
-            new_count[idx] = self.counts[idx] + other.counts[idx];
+        for (idx, count) in new_count.iter_mut().enumerate() {
+            *count = self.counts[idx] + other.counts[idx];
         }
 
         CharacterCounts { counts: new_count }

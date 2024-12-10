@@ -119,12 +119,7 @@ fn solve(samples: &[&str], result: &str) -> usize {
 }
 
 fn diff_num_segments(left: &str, right: &str) -> Option<char> {
-    for c in left.chars() {
-        if !right.contains(c) {
-            return Some(c);
-        }
-    }
-    None
+    left.chars().find(|&c| !right.contains(c))
 }
 
 fn is_unordered_match(left: &str, right: &str) -> bool {

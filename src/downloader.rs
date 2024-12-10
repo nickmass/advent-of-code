@@ -1,6 +1,6 @@
 use crate::Input;
 
-const USER_AGENT: &'static str = "aoc-submission-nickmass";
+const USER_AGENT: &str = "aoc-submission-nickmass";
 
 pub struct InputDownloader {
     input: Input,

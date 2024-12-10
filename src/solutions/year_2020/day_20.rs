@@ -8,7 +8,7 @@ pub fn part_one(input: &str) -> u64 {
     let mut all_tiles = Vec::new();
     let mut cur_tile = None;
     for line in lines {
-        if line.len() == 0 {
+        if line.is_empty() {
             count = 0;
             continue;
         }
@@ -56,7 +56,7 @@ pub fn part_two(input: &str) -> u64 {
     let mut all_tiles = VecDeque::new();
     let mut cur_tile: Option<Tile> = None;
     for line in lines {
-        if line.len() == 0 {
+        if line.is_empty() {
             count = 0;
             continue;
         }
@@ -130,8 +130,7 @@ impl Edges {
     fn vert_flip(self) -> Self {
         let left = self.left.reverse_bits() >> 22;
         let right = self.right.reverse_bits() >> 22;
-        let vert_flip = Edges::new(self.bottom, self.top, left, right);
-        vert_flip
+        Edges::new(self.bottom, self.top, left, right)
     }
 
     fn rotate(self) -> Self {
@@ -212,7 +211,7 @@ impl std::fmt::Display for Edges {
             }
             top >>= 1;
         }
-        write!(f, "\n")?;
+        writeln!(f)?;
 
         left >>= 1;
         right >>= 1;
@@ -231,7 +230,7 @@ impl std::fmt::Display for Edges {
                 write!(f, ".")?;
             }
             right >>= 1;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         for _ in 0..10 {
@@ -243,7 +242,7 @@ impl std::fmt::Display for Edges {
             bottom >>= 1;
         }
 
-        write!(f, "\n")
+        writeln!(f)
     }
 }
 
@@ -409,7 +408,7 @@ impl std::fmt::Display for Tile {
                 let c = if self.get_cell(x, y) { '#' } else { '.' };
                 write!(f, "{}", c)?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -424,14 +423,14 @@ struct TileIndexIdentity;
 
 impl TileIndex for TileIndexIdentity {
     fn coords(&self, x: usize, y: usize) -> (usize, usize) {
-        (9 - x, (y as isize - 9).abs() as usize)
+        (9 - x, (y as isize - 9).unsigned_abs())
     }
 }
 
 struct VertFlip(Box<dyn TileIndex>);
 impl TileIndex for VertFlip {
     fn coords(&self, x: usize, y: usize) -> (usize, usize) {
-        let y = (y as isize - 9).abs() as usize;
+        let y = (y as isize - 9).unsigned_abs();
         self.0.coords(x, y)
     }
 }
@@ -537,7 +536,7 @@ impl std::fmt::Display for TilePattern {
                     write!(f, " ")?;
                 }
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -640,8 +639,8 @@ impl TileImage {
                     let mut pos = self
                         .tile_to_position
                         .get(&existing_tile.id)
-                        .unwrap()
-                        .clone();
+                        .copied()
+                        .unwrap();
                     match relative {
                         RelativePosition::Left => pos.0 -= 1,
                         RelativePosition::Above => pos.1 -= 1,
@@ -724,7 +723,7 @@ impl<'a> std::fmt::Display for Borderless<'a> {
                 };
                 write!(f, "{}", c)?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())
@@ -747,7 +746,7 @@ impl std::fmt::Display for TileImage {
                 };
                 write!(f, "{}", c)?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())

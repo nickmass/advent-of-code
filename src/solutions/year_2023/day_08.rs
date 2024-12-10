@@ -142,7 +142,7 @@ fn gcd(a: usize, b: usize) -> usize {
         n -= 1;
     }
 
-    return 1;
+    1
 }
 
 fn lcm_iter<I: IntoIterator<Item = usize>>(iter: I) -> usize {

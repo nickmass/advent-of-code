@@ -58,7 +58,7 @@ pub fn days() -> SolutionCollection {
 pub fn take_u64(s: &str) -> Option<(&str, u64)> {
     let mut index = 0;
     for c in s.chars() {
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             index += 1;
         } else {
             break;
@@ -74,7 +74,7 @@ pub fn take_u64(s: &str) -> Option<(&str, u64)> {
     }
 }
 
-pub fn take_token<'a, 'b>(s: &'a str, n: &'b str) -> Option<&'a str> {
+pub fn take_token<'a>(s: &'a str, n: &str) -> Option<&'a str> {
     if n.len() > s.len() {
         None
     } else {
@@ -88,7 +88,7 @@ pub fn take_token<'a, 'b>(s: &'a str, n: &'b str) -> Option<&'a str> {
 }
 
 pub fn take_char(s: &str) -> Option<(&str, char)> {
-    if s.len() > 0 {
+    if !s.is_empty() {
         let c = s.chars().next().unwrap();
         Some((&s[1..], c))
     } else {

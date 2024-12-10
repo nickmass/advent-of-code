@@ -61,11 +61,11 @@ pub fn part_two(input: &str) -> i64 {
     .into_iter()
     .sum();
 
-    return corners
+    corners
         + (steps / width * long_edge)
         + (((steps / width) - 1) * short_edge)
         + (center * a)
-        + (center_odd * b);
+        + (center_odd * b)
 }
 
 #[allow(dead_code)]

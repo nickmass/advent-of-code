@@ -2,7 +2,7 @@ pub fn part_one(input: &str) -> i32 {
     let (vert, horz) = input
         .trim()
         .split("\n\n")
-        .map(|block| Map::new(block))
+        .map(Map::new)
         .map(|m| m.find_mirroring::<0>())
         .fold((0, 0), |(vert, horz), next| match next {
             Mirroring::Vertical(v) => (vert + v, horz),
@@ -16,7 +16,7 @@ pub fn part_two(input: &str) -> i32 {
     let (vert, horz) = input
         .trim()
         .split("\n\n")
-        .map(|block| Map::new(block))
+        .map(Map::new)
         .map(|m| m.find_mirroring::<1>())
         .fold((0, 0), |(vert, horz), next| match next {
             Mirroring::Vertical(v) => (vert + v, horz),

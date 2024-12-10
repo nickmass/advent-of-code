@@ -172,7 +172,7 @@ impl Map {
                     let loop_len = i - dupe;
                     let remaining = target - i;
 
-                    i = ((remaining / loop_len) * loop_len) + i;
+                    i += (remaining / loop_len) * loop_len;
 
                     dupe_found = true;
                 }
@@ -195,12 +195,9 @@ impl Map {
             for x in 0..width {
                 let point = Orientation::North(x, y);
 
-                match self.get(point) {
-                    Some(Cell::Rolling) => {
-                        sum += y;
-                        count += 1;
-                    }
-                    _ => (),
+                if let Some(Cell::Rolling) = self.get(point) {
+                    sum += y;
+                    count += 1;
                 }
             }
         }

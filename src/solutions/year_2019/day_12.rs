@@ -11,9 +11,9 @@ pub fn solve_part_one<const N: usize>(input: &str) -> i64 {
             let mut s = String::new();
             let mut n = Vec::new();
             for c in l.chars() {
-                if c.is_digit(10) || c == '-' {
+                if c.is_ascii_digit() || c == '-' {
                     s.push(c);
-                } else if s.len() > 0 {
+                } else if !s.is_empty() {
                     n.push(s.parse::<i64>().unwrap());
                     s.clear();
                 }
@@ -69,9 +69,9 @@ pub fn part_two(input: &str) -> usize {
             let mut s = String::new();
             let mut n = Vec::new();
             for c in l.chars() {
-                if c.is_digit(10) || c == '-' {
+                if c.is_ascii_digit() || c == '-' {
                     s.push(c);
-                } else if s.len() > 0 {
+                } else if !s.is_empty() {
                     n.push(s.parse::<i64>().unwrap());
                     s.clear();
                 }

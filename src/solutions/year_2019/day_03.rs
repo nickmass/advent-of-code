@@ -49,7 +49,7 @@ pub fn part_two(input: &str) -> i32 {
         })
         .collect();
 
-    let mut min_distance = std::i32::MAX;
+    let mut min_distance = i32::MAX;
 
     let mut fl_distance = 0;
     for (fl_start, fl) in first_segments {

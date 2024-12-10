@@ -27,7 +27,7 @@ pub fn part_one(input: &str) -> usize {
             }
 
             value = next_value;
-            remainder = remainder / 10;
+            remainder /= 10;
         }
 
         if has_pair {
@@ -72,7 +72,7 @@ pub fn part_two(input: &str) -> usize {
             }
 
             value = next_value;
-            remainder = remainder / 10;
+            remainder /= 10;
         }
 
         if has_pair {

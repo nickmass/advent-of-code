@@ -112,7 +112,7 @@ impl<W: Word> Memory<W> for VecMem<W> {
     }
     fn read(&mut self, addr: usize) -> Option<W> {
         self.resize_to_fit(addr);
-        self.mem.get(addr).and_then(|v| v.clone())
+        self.mem.get(addr).and_then(|v| *v)
     }
     fn write(&mut self, addr: usize, value: W) {
         self.resize_to_fit(addr);
@@ -137,12 +137,10 @@ impl<W: Word> Memory<W> for MapMem<W> {
         MapMem { capacity, mem }
     }
     fn read(&mut self, addr: usize) -> Option<W> {
-        self.mem.get(&addr).map(|v| v.clone()).or_else(|| {
-            if addr > self.capacity {
-                Some(W::ZERO)
-            } else {
-                None
-            }
+        self.mem.get(&addr).copied().or(if addr > self.capacity {
+            Some(W::ZERO)
+        } else {
+            None
         })
     }
     fn write(&mut self, addr: usize, value: W) {

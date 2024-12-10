@@ -88,7 +88,7 @@ impl<'a> ModuleNetwork<'a> {
                     .extend(module.tick(self.ticks, src, pulse).into_iter().flat_map(
                         |(targets, pulse)| {
                             self.targets[targets.0..targets.1]
-                                .into_iter()
+                                .iter()
                                 .copied()
                                 .map(move |next_dst| (dst, next_dst, pulse))
                         },
@@ -199,7 +199,7 @@ fn gcd(a: u64, b: u64) -> u64 {
         n -= 1;
     }
 
-    return 1;
+    1
 }
 
 fn lcm_iter<I: IntoIterator<Item = u64>>(iter: I) -> u64 {

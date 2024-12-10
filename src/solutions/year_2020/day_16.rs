@@ -9,7 +9,7 @@ pub fn part_one(input: &str) -> u64 {
     for line in lines {
         match mode {
             0 => {
-                if line == "" {
+                if line.is_empty() {
                     mode += 1;
                     continue;
                 }
@@ -73,7 +73,7 @@ pub fn part_two(input: &str) -> u64 {
     for line in lines {
         match mode {
             0 => {
-                if line == "" {
+                if line.is_empty() {
                     mode += 1;
                     continue;
                 }
@@ -165,7 +165,7 @@ pub fn part_two(input: &str) -> u64 {
                 let col = possible_cols.first().unwrap();
                 r.3 = true;
                 rule_map.insert(*col, r.clone());
-            } else if possible_cols.len() == 0 {
+            } else if possible_cols.is_empty() {
                 panic!("shiiit");
             }
         }

@@ -20,10 +20,7 @@ enum Cell {
 
 impl Cell {
     fn is_symbolic(self) -> bool {
-        match self {
-            Cell::Symbol | Cell::Gear => true,
-            _ => false,
-        }
+        matches!(self, Cell::Symbol | Cell::Gear)
     }
 
     fn number(self) -> Option<usize> {
@@ -146,7 +143,7 @@ impl Map {
         }
     }
 
-    fn neighbors<'a>(&'a self, x: i32, y: i32) -> impl Iterator<Item = Cell> + 'a {
+    fn neighbors(&self, x: i32, y: i32) -> impl Iterator<Item = Cell> + '_ {
         let mut i = 0;
         std::iter::from_fn(move || loop {
             let (x, y) = match i {

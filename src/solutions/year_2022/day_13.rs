@@ -17,15 +17,15 @@ pub fn part_one(input: &str) -> usize {
 }
 
 pub fn part_two(input: &str) -> usize {
-    let special_packets = ["[[2]]", "[[6]]"].into_iter().filter_map(|l| {
+    let special_packets = ["[[2]]", "[[6]]"].into_iter().map(|l| {
         let p = parse_packet(l);
-        Some((p, true))
+        (p, true)
     });
 
     let mut packets: Vec<_> = input
         .trim()
         .lines()
-        .filter(|l| l.len() > 0)
+        .filter(|l| !l.is_empty())
         .map(|l| (parse_packet(l), false))
         .chain(special_packets)
         .collect();

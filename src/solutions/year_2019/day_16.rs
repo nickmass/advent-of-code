@@ -2,7 +2,7 @@ pub fn part_one(input: &str) -> String {
     let mut signal: Vec<_> = input
         .chars()
         .filter_map(|c| {
-            if c >= '0' && c <= '9' {
+            if c.is_ascii_digit() {
                 Some((c as u32 - '0' as u32) as u8)
             } else {
                 None
@@ -38,7 +38,7 @@ pub fn part_one(input: &str) -> String {
     signal
         .into_iter()
         .take(8)
-        .map(|n| (n + '0' as u8) as char)
+        .map(|n| (n + b'0') as char)
         .collect()
 }
 
@@ -50,7 +50,7 @@ pub fn part_two(input: &str) -> String {
     let input = input
         .chars()
         .filter_map(|c| {
-            if c >= '0' && c <= '9' {
+            if c.is_ascii_digit() {
                 Some((c as u32 - '0' as u32) as u8)
             } else {
                 None
@@ -80,7 +80,7 @@ pub fn part_two(input: &str) -> String {
     signal
         .into_iter()
         .take(8)
-        .map(|n| (n + '0' as u8) as char)
+        .map(|n| (n + b'0') as char)
         .collect()
 }
 

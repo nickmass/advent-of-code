@@ -49,7 +49,7 @@ impl Stacks {
                     names.insert(c, position);
                 } else {
                     let position = (idx - 1) / 4;
-                    let stack = stacks.entry(position).or_insert_with(|| VecDeque::new());
+                    let stack = stacks.entry(position).or_insert(VecDeque::new());
                     stack.push_front(c);
                 }
             }
@@ -126,7 +126,7 @@ impl std::str::FromStr for Move {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: [_; 3] = s
             .split(|c: char| !c.is_ascii_digit())
-            .filter(|p| p.len() > 0)
+            .filter(|p| !p.is_empty())
             .collect::<Vec<_>>()
             .try_into()
             .map_err(|_| MoveParseErr)?;

@@ -42,9 +42,8 @@ pub fn part_one(input: &str) -> i32 {
             let left = map.get(&left);
             let right = map.get(&right);
 
-            match top.zip(bottom).zip(left).zip(right) {
-                Some((((35, 35), 35), 35)) => sum += row * col,
-                _ => (),
+            if let Some((((35, 35), 35), 35)) = top.zip(bottom).zip(left).zip(right) {
+                sum += row * col;
             }
         }
     }
@@ -147,7 +146,7 @@ pub fn part_two(input: &str) -> i32 {
                 machine.set_input(inp.unwrap_or('\n') as i32);
             }
             intcode::Interrupt::Output(10) => {
-                if input.len() == 0 {
+                if input.is_empty() {
                     running = true;
                 }
                 //println!();
@@ -180,10 +179,7 @@ enum Move {
 
 impl Move {
     fn is_sub(&self) -> bool {
-        match *self {
-            Move::Subroutine(_) => true,
-            _ => false,
-        }
+        matches!(self, Move::Subroutine(_))
     }
 }
 
@@ -256,7 +252,7 @@ fn find_route(map: &HashMap<Point2<i32>, u8>, robot: &(Point2<i32>, Robot)) -> S
         let mut move_count = 0;
         while is_wall(point, move_offset) {
             move_count += 1;
-            point = point + move_offset;
+            point += move_offset;
         }
 
         route.push(Move::Forward(move_count));
@@ -318,7 +314,7 @@ fn find_route(map: &HashMap<Point2<i32>, u8>, robot: &(Point2<i32>, Robot)) -> S
         let mut main = String::new();
 
         for m in route.iter().filter(|m| !m.is_sub()).take(a_len) {
-            if a.len() != 0 {
+            if !a.is_empty() {
                 a.push(',');
             }
             match m {
@@ -331,7 +327,7 @@ fn find_route(map: &HashMap<Point2<i32>, u8>, robot: &(Point2<i32>, Robot)) -> S
         remove_sub(&mut route, 0, a_len);
 
         for m in route.iter().filter(|m| !m.is_sub()).take(b_len) {
-            if b.len() != 0 {
+            if !b.is_empty() {
                 b.push(',');
             }
             match m {
@@ -344,7 +340,7 @@ fn find_route(map: &HashMap<Point2<i32>, u8>, robot: &(Point2<i32>, Robot)) -> S
         remove_sub(&mut route, 1, b_len);
 
         for m in route.iter().filter(|m| !m.is_sub()).take(c_len) {
-            if c.len() != 0 {
+            if !c.is_empty() {
                 c.push(',');
             }
             match m {
@@ -357,7 +353,7 @@ fn find_route(map: &HashMap<Point2<i32>, u8>, robot: &(Point2<i32>, Robot)) -> S
         remove_sub(&mut route, 2, c_len);
 
         for m in route {
-            if main.len() != 0 {
+            if !main.is_empty() {
                 main.push(',');
             }
             match m {

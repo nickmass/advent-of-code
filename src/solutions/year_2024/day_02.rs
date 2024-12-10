@@ -7,7 +7,7 @@ pub fn part_one(input: &str) -> usize {
                 .split(' ')
                 .filter_map(|n| n.parse::<i32>().ok())
                 .report()
-                .is_safe()
+                .verify()
         })
         .count()
 }
@@ -27,7 +27,7 @@ pub fn part_two(input: &str) -> usize {
             let mut report = report.clone();
             report.skip_level(idx);
 
-            if report.is_safe() {
+            if report.verify() {
                 safe_count += 1;
                 break;
             }
@@ -71,7 +71,7 @@ impl<I: Iterator<Item = T>, T: Copy> ReportIter<I> {
 }
 
 impl<I: Iterator<Item = i32>> ReportIter<I> {
-    fn is_safe(self) -> bool {
+    fn verify(self) -> bool {
         let mut sign = None;
         for (a, b) in self {
             let diff = a - b;

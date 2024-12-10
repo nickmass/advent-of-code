@@ -95,8 +95,7 @@ impl<const DEBUG: bool> SpringcodeMachine<DEBUG> {
 
         for c in program
             .into_iter()
-            .map(|op| op.bytes())
-            .flatten()
+            .flat_map(|op| op.bytes())
             .chain(P::EXEC.iter().copied())
             .chain(once(b'\n'))
         {

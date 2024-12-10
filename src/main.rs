@@ -50,7 +50,7 @@ fn main() {
 
     args.retain(|arg| !arg.starts_with("-"));
 
-    let event = if let Some(arg) = args.get(0) {
+    let event = if let Some(arg) = args.first() {
         if arg.to_lowercase() == "all" {
             EventSelection::All
         } else {
@@ -92,7 +92,7 @@ fn main() {
     match event {
         EventSelection::Specific(event) => {
             if let Some(days) = events.get(&event) {
-                run_event(&mut context, event, &days, &day_filter);
+                run_event(&mut context, event, days, &day_filter);
             } else {
                 eprintln!("event '{}' not configured", event);
                 std::process::exit(1)
@@ -102,7 +102,7 @@ fn main() {
             let mut events: Vec<_> = events.into_iter().collect();
             events.sort_by_key(|e| e.0);
 
-            let mut overall_duration = Duration::new(0, 0);
+            let mut overall_duration = Duration::ZERO;
 
             for event in &events {
                 overall_duration += run_event(&mut context, event.0, &event.1, &day_filter);
@@ -131,7 +131,7 @@ fn run_event(
     println!("Advent of Code - {}", event);
     println!();
 
-    let mut total_duration = Duration::new(0, 0);
+    let mut total_duration = Duration::ZERO;
 
     for day in days
         .solutions()
@@ -193,7 +193,7 @@ fn submit_day_part(ctx: &Context, event: u32, day: &Solution, part: u32, answer:
 
         Some(buffer.trim())
     } else if entry == "y" {
-        Some(answer.into())
+        Some(answer)
     } else {
         None
     };

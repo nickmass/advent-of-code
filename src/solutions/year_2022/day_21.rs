@@ -33,7 +33,7 @@ impl<'a> MonkeyTroop<'a> {
     }
 
     fn get(&self, name: &str) -> Option<PartialNum> {
-        self.monkeys.get(name)?.value(&self)
+        self.monkeys.get(name)?.value(self)
     }
 }
 
@@ -64,7 +64,7 @@ impl<'a> Monkey<'a> {
 
         let monkey = if let Some((lhs, rhs)) = eq {
             Monkey::Eq(lhs, rhs)
-        } else if let Some(_) = human {
+        } else if human.is_some() {
             Monkey::Human
         } else if let Some((lhs, rhs)) = add {
             Monkey::Add(lhs, rhs)

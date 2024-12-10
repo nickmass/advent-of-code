@@ -82,7 +82,7 @@ impl<'a> NodeCollection<'a> {
                 if let Some(node) = self.node_map.get(node) {
                     *node
                 } else {
-                    let new_node = if node.chars().all(|n| n >= 'a' && n <= 'z') {
+                    let new_node = if node.chars().all(|n| n.is_ascii_lowercase()) {
                         Node::Small(self.node_map.len())
                     } else {
                         Node::Big(self.node_map.len())
@@ -137,7 +137,7 @@ impl Nodes {
         nodes.complete()
     }
 
-    fn neighbors<'a>(&'a self, node: Node) -> impl Iterator<Item = Node> + 'a {
+    fn neighbors(&self, node: Node) -> impl Iterator<Item = Node> + '_ {
         self.neighbors.get(&node).unwrap().iter().copied()
     }
 }

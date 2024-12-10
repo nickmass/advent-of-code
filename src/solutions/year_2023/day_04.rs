@@ -52,7 +52,7 @@ impl std::str::FromStr for Line {
     }
 }
 
-fn collect_numbers<'a>(s: &'a str) -> impl Iterator<Item = u32> + 'a {
+fn collect_numbers(s: &str) -> impl Iterator<Item = u32> + '_ {
     s.split(" ").filter_map(|s| s.parse().ok())
 }
 

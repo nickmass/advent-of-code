@@ -202,7 +202,7 @@ impl<const STARTS: usize> Map<STARTS> {
         }
     }
 
-    fn moves<'a>(&'a self, point: Point) -> impl Iterator<Item = Move> + 'a {
+    fn moves(&self, point: Point) -> impl Iterator<Item = Move> + '_ {
         let mut i = 0;
         std::iter::from_fn(move || loop {
             let p = match i {
@@ -225,7 +225,7 @@ impl<const STARTS: usize> Map<STARTS> {
         })
     }
 
-    fn paths<'a>(&'a self, start: Point) -> impl Iterator<Item = (Cell, u32)> + 'a {
+    fn paths(&self, start: Point) -> impl Iterator<Item = (Cell, u32)> + '_ {
         let mut visited = HashSet::new();
         let mut haystack = BinaryHeap::new();
 
@@ -337,7 +337,7 @@ impl<const STARTS: usize> Graph<STARTS> {
                 Node::Start(i) => &map.starts[*i as usize],
             };
 
-            let left_node_id = node_map.get(&node).unwrap();
+            let left_node_id = node_map.get(node).unwrap();
 
             edge_map.insert(*left_node_id, EdgeId(edges.len()));
 
@@ -369,7 +369,7 @@ impl<const STARTS: usize> Graph<STARTS> {
         }
     }
 
-    fn edges<'a>(&'a self, node: Node) -> impl Iterator<Item = Edge> + 'a {
+    fn edges(&self, node: Node) -> impl Iterator<Item = Edge> + '_ {
         let node_id = *self.node_map.get(&node).unwrap();
         let EdgeId(mut edge_id) = *self.edge_map.get(&node_id).unwrap();
         std::iter::from_fn(move || {
@@ -386,29 +386,13 @@ impl<const STARTS: usize> Graph<STARTS> {
         })
     }
 
-    fn unlocked_edges<'a>(
-        &'a self,
-        node: Node,
-        keyring: Keyring,
-    ) -> impl Iterator<Item = Edge> + 'a {
-        self.edges(node).filter_map(move |edge| {
+    fn unlocked_edges(&self, node: Node, keyring: Keyring) -> impl Iterator<Item = Edge> + '_ {
+        self.edges(node).filter(move |edge| {
             let right_node = self.nodes[edge.right.0];
             match right_node {
-                Node::Door(d) => {
-                    if keyring.unlocks(d) {
-                        Some(edge)
-                    } else {
-                        None
-                    }
-                }
-                Node::Key(k) => {
-                    if keyring.contains(k) {
-                        None
-                    } else {
-                        Some(edge)
-                    }
-                }
-                _ => Some(edge),
+                Node::Door(d) => keyring.unlocks(d),
+                Node::Key(k) => !keyring.contains(k),
+                _ => true,
             }
         })
     }
@@ -537,7 +521,7 @@ impl<const STARTS: usize> Graph<STARTS> {
 struct Ordered<T>(u32, T);
 impl<T: Eq> std::cmp::PartialOrd for Ordered<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.0.partial_cmp(&self.0)
+        Some(self.cmp(other))
     }
 }
 impl<T: Eq> std::cmp::Ord for Ordered<T> {

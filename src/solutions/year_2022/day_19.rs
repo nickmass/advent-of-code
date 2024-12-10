@@ -2,7 +2,7 @@ pub fn part_one(input: &str) -> u16 {
     input
         .trim()
         .lines()
-        .filter_map(|l| Blueprint::parse(l))
+        .filter_map(Blueprint::parse)
         .map(|b| b.find_max_score(24, false))
         .sum()
 }
@@ -11,7 +11,7 @@ pub fn part_two(input: &str) -> u16 {
     input
         .trim()
         .lines()
-        .filter_map(|l| Blueprint::parse(l))
+        .filter_map(Blueprint::parse)
         .take(3)
         .map(|b| b.find_max_score(32, true))
         .product()
@@ -115,7 +115,7 @@ impl Blueprint {
             geode_robot,
         ]
         .into_iter()
-        .filter_map(|a| a)
+        .flatten()
     }
 
     fn perform_action(&self, resources: &mut Resources, action: Action) {

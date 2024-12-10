@@ -56,7 +56,7 @@ impl Input {
             (data, path)
         };
 
-        std::fs::create_dir_all(&path.parent().expect("input path should have parent"))?;
+        std::fs::create_dir_all(path.parent().expect("input path should have parent"))?;
         std::fs::write(&path, &bytes)?;
 
         Ok(())

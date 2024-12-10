@@ -8,7 +8,7 @@ fn solve_part_one<const Y: i32>(input: &str) -> i32 {
     let sensors = input
         .trim()
         .lines()
-        .map(|l| parse(l))
+        .map(parse)
         .filter(|s| s.near_y(Y))
         .collect::<Vec<_>>();
 
@@ -46,7 +46,7 @@ pub fn part_two(input: &str) -> u64 {
 }
 
 fn solve_part_two<const MAX: i32>(input: &str) -> u64 {
-    let sensors = input.trim().lines().map(|l| parse(l)).collect::<Vec<_>>();
+    let sensors = input.trim().lines().map(parse).collect::<Vec<_>>();
 
     for sensor in sensors.iter() {
         for (x, y) in sensor
@@ -64,7 +64,7 @@ fn solve_part_two<const MAX: i32>(input: &str) -> u64 {
 
 fn parse(line: &str) -> Sensor {
     let mut numbers = line
-        .split(|c| !(('0'..='9').contains(&c)) && c != '-')
+        .split(|c: char| !c.is_ascii_digit() && c != '-')
         .filter(|p| !p.is_empty())
         .filter_map(|p| p.parse::<i32>().ok());
 

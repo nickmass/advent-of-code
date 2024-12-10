@@ -189,7 +189,7 @@ impl<'a> Graph<'a> {
     }
 
     fn solve(&self) -> Option<u64> {
-        let walker = Walker::new(&self)?;
+        let walker = Walker::new(self)?;
         let mut walkers = vec![walker];
 
         let mut max_pressure = 0;
@@ -206,7 +206,7 @@ impl<'a> Graph<'a> {
     }
 
     fn solve_with_partner(&self) -> Option<u64> {
-        let walker = PairWalker::new(&self)?;
+        let walker = PairWalker::new(self)?;
         let mut walkers = vec![walker];
 
         let mut max_pressure = 0;

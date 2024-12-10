@@ -332,7 +332,7 @@ impl Graph {
         Self { edges, edge_map }
     }
 
-    fn edges<'a>(&'a self, node: BitNode) -> impl Iterator<Item = Edge> + 'a {
+    fn edges(&self, node: BitNode) -> impl Iterator<Item = Edge> + '_ {
         let edge_id = self.edge_map.get(node.0 as usize).unwrap();
         let mut i = edge_id.0;
 
