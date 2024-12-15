@@ -1,4 +1,4 @@
-pub fn part_one(input: &str) -> u64 {
+pub fn part_one(input: &str) -> i64 {
     input
         .trim()
         .split("\n\n")
@@ -7,7 +7,7 @@ pub fn part_one(input: &str) -> u64 {
         .sum()
 }
 
-pub fn part_two(input: &str) -> u64 {
+pub fn part_two(input: &str) -> i64 {
     input
         .trim()
         .split("\n\n")
@@ -16,7 +16,7 @@ pub fn part_two(input: &str) -> u64 {
         .sum()
 }
 
-fn solve_one(scenario: &Scenario) -> Option<u64> {
+fn solve_one(scenario: &Scenario) -> Option<i64> {
     let max_b = scenario.target.min_div(scenario.button_b.offset);
     let max = if max_b > 100 { 100 } else { max_b };
 
@@ -37,18 +37,35 @@ fn solve_one(scenario: &Scenario) -> Option<u64> {
     None
 }
 
-fn solve_two(_scenario: &Scenario) -> Option<u64> {
-    None
+fn solve_two(scenario: &Scenario) -> Option<i64> {
+    let offset = Point(10000000000000, 10000000000000);
+    let target = scenario.target + offset;
+
+    let de = (scenario.button_a.offset.1 * scenario.button_b.offset.0)
+        - (scenario.button_a.offset.0 * scenario.button_b.offset.1);
+
+    let x_num = (scenario.button_b.offset.0 * target.1) - (scenario.button_b.offset.1 * target.0);
+    let y_num = (scenario.button_a.offset.1 * target.0) - (scenario.button_a.offset.0 * target.1);
+
+    let x = x_num / de;
+    let y = y_num / de;
+
+    let presses = Presses::new(x, y);
+    if presses.position(scenario) == target {
+        Some(presses.cost())
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
 struct Presses {
-    a: u64,
-    b: u64,
+    a: i64,
+    b: i64,
 }
 
 impl Presses {
-    fn new(a: u64, b: u64) -> Self {
+    fn new(a: i64, b: i64) -> Self {
         Self { a, b }
     }
 
@@ -59,7 +76,7 @@ impl Presses {
         a + b
     }
 
-    fn cost(&self) -> u64 {
+    fn cost(&self) -> i64 {
         3 * self.a + self.b
     }
 }
@@ -122,10 +139,10 @@ impl std::str::FromStr for Button {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Point(u64, u64);
+struct Point(i64, i64);
 
 impl Point {
-    fn min_div(self, other: Point) -> u64 {
+    fn min_div(self, other: Point) -> i64 {
         let x = self.0 / other.0;
         let y = self.1 / other.1;
 
@@ -165,10 +182,10 @@ impl std::ops::Div for Point {
     }
 }
 
-impl std::ops::Mul<u64> for Point {
+impl std::ops::Mul<i64> for Point {
     type Output = Self;
 
-    fn mul(self, rhs: u64) -> Self::Output {
+    fn mul(self, rhs: i64) -> Self::Output {
         let Point(x, y) = self;
         Point(x * rhs, y * rhs)
     }
