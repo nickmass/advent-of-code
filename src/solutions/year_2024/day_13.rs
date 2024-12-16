@@ -3,7 +3,7 @@ pub fn part_one(input: &str) -> i64 {
         .trim()
         .split("\n\n")
         .map(|s| s.parse().unwrap())
-        .filter_map(|s| solve_one(&s))
+        .filter_map(|s| solve::<0>(&s))
         .sum()
 }
 
@@ -12,45 +12,28 @@ pub fn part_two(input: &str) -> i64 {
         .trim()
         .split("\n\n")
         .map(|s| s.parse().unwrap())
-        .filter_map(|s| solve_two(&s))
+        .filter_map(|s| solve::<10000000000000>(&s))
         .sum()
 }
 
-fn solve_one(scenario: &Scenario) -> Option<i64> {
-    let max_b = scenario.target.min_div(scenario.button_b.offset);
-    let max = if max_b > 100 { 100 } else { max_b };
-
-    for b in (0..=max).rev() {
-        let pos = Presses::new(0, b).position(scenario);
-        let diff = scenario.target - pos;
-
-        let a = diff.min_div(scenario.button_a.offset);
-        if a > 100 {
-            continue;
-        }
-        let m = Presses::new(a, b);
-        if m.position(scenario) == scenario.target {
-            return Some(m.cost());
-        }
-    }
-
-    None
-}
-
-fn solve_two(scenario: &Scenario) -> Option<i64> {
-    let offset = Point(10000000000000, 10000000000000);
+fn solve<const OFFSET: i64>(scenario: &Scenario) -> Option<i64> {
+    let offset = Point::new(OFFSET, OFFSET);
     let target = scenario.target + offset;
 
-    let de = (scenario.button_a.offset.1 * scenario.button_b.offset.0)
-        - (scenario.button_a.offset.0 * scenario.button_b.offset.1);
+    let de = (scenario.button_a.offset.y * scenario.button_b.offset.x)
+        - (scenario.button_a.offset.x * scenario.button_b.offset.y);
 
-    let x_num = (scenario.button_b.offset.0 * target.1) - (scenario.button_b.offset.1 * target.0);
-    let y_num = (scenario.button_a.offset.1 * target.0) - (scenario.button_a.offset.0 * target.1);
+    if de == 0 {
+        return None;
+    }
 
-    let x = x_num / de;
-    let y = y_num / de;
+    let a_num = (scenario.button_b.offset.x * target.y) - (scenario.button_b.offset.y * target.x);
+    let b_num = (scenario.button_a.offset.y * target.x) - (scenario.button_a.offset.x * target.y);
 
-    let presses = Presses::new(x, y);
+    let a = a_num / de;
+    let b = b_num / de;
+
+    let presses = Presses::new(a, b);
     if presses.position(scenario) == target {
         Some(presses.cost())
     } else {
@@ -111,7 +94,7 @@ impl std::str::FromStr for Scenario {
         Ok(Scenario {
             button_a,
             button_b,
-            target: Point(x, y),
+            target: Point::new(x, y),
         })
     }
 }
@@ -133,52 +116,28 @@ impl std::str::FromStr for Button {
         let y = y.parse().map_err(|_| ParseErr)?;
 
         Ok(Button {
-            offset: Point(x, y),
+            offset: Point::new(x, y),
         })
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Point(i64, i64);
+struct Point {
+    x: i64,
+    y: i64,
+}
 
 impl Point {
-    fn min_div(self, other: Point) -> i64 {
-        let x = self.0 / other.0;
-        let y = self.1 / other.1;
-
-        x.min(y)
+    fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
     }
 }
 
 impl std::ops::Add for Point {
     type Output = Self;
 
-    fn add(self, Point(x, y): Self) -> Self::Output {
-        Point(self.0 + x, self.1 + y)
-    }
-}
-
-impl std::ops::Sub for Point {
-    type Output = Self;
-
-    fn sub(self, Point(x, y): Self) -> Self::Output {
-        Point(self.0 - x, self.1 - y)
-    }
-}
-
-impl std::ops::Mul for Point {
-    type Output = Self;
-
-    fn mul(self, Point(x, y): Self) -> Self::Output {
-        Point(self.0 * x, self.1 * y)
-    }
-}
-
-impl std::ops::Div for Point {
-    type Output = Self;
-
-    fn div(self, Point(x, y): Self) -> Self::Output {
-        Point(self.0 / x, self.1 / y)
+    fn add(self, Point { x, y }: Self) -> Self::Output {
+        Point::new(self.x + x, self.y + y)
     }
 }
 
@@ -186,8 +145,8 @@ impl std::ops::Mul<i64> for Point {
     type Output = Self;
 
     fn mul(self, rhs: i64) -> Self::Output {
-        let Point(x, y) = self;
-        Point(x * rhs, y * rhs)
+        let Point { x, y } = self;
+        Point::new(x * rhs, y * rhs)
     }
 }
 
