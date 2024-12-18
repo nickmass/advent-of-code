@@ -23,7 +23,7 @@ pub fn part_two(input: &str) -> u64 {
     heap.push(Search(0, 0));
 
     while let Some(Search(base_a, valid)) = heap.pop() {
-        'outer: for n in 0..0x80 {
+        'outer: for n in 0..0x400 {
             let mut machine = machine.clone();
             output.clear();
 
@@ -176,7 +176,7 @@ Program: 0,1,5,4,3,0"#;
 Register B: 0
 Register C: 0
  
-Program: 0,3,5,4,3,0
-"#;
+Program: 0,3,5,4,3,0"#;
+
     assert_eq!(117440, part_two(input));
 }

@@ -35,11 +35,13 @@ fn main() {
 
     let mut submission = false;
     let mut details = false;
+    let mut print_input = false;
 
     for arg in args.iter() {
         match arg.as_str() {
             "--submit" | "-s" => submission = true,
             "--details" | "-d" => details = true,
+            "--input" | "-i" => print_input = true,
             "--help" | "-h" => {
                 usage();
                 return;
@@ -87,6 +89,7 @@ fn main() {
         profiler,
         details,
         submission,
+        print_input,
     };
 
     match event {
@@ -120,6 +123,7 @@ struct Context {
     profiler: Profiler,
     details: bool,
     submission: bool,
+    print_input: bool,
 }
 
 fn run_event(
@@ -147,6 +151,12 @@ fn run_event(
 fn run_day(ctx: &mut Context, event: u32, day: &Solution) -> Duration {
     match ctx.downloader.download_input_if_absent(event, day.day) {
         Ok(input) => {
+            if ctx.print_input {
+                println!();
+                println!("{input}");
+                println!();
+            }
+
             ctx.profiler.start();
             let part_one = (day.part_one)(&input);
             let part_one_metrics = ctx.profiler.stop();
@@ -261,6 +271,9 @@ Options:
 
 	--details	-d
 		Display additional performance metrics.
+		
+	--input    -i
+	   Print the input for each day
 
 	--help	-h
 		Display this message.
