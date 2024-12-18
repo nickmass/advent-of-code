@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 pub fn part_one(input: &str) -> String {
-    let (mut machine, program) = parse(input);
+    let (mut machine, program) = parse(input).unwrap();
 
     let mut output = String::new();
     while let Interrupt::Output(b) = machine.run(&program) {
@@ -16,9 +16,9 @@ pub fn part_one(input: &str) -> String {
 }
 
 pub fn part_two(input: &str) -> u64 {
-    let (machine, program) = parse(input);
+    let (machine, program) = parse(input).unwrap();
 
-    let mut output = Vec::new();
+    let mut output = Vec::with_capacity(program.len());
     let mut heap = BinaryHeap::new();
     heap.push(Search(0, 0));
 
@@ -31,7 +31,7 @@ pub fn part_two(input: &str) -> u64 {
             machine.a = a;
 
             while let Interrupt::Output(b) = machine.run(&program) {
-                if output.len() < program.len() && b == program[output.len()] {
+                if program.get(output.len()) == Some(&b) {
                     output.push(b);
 
                     if output.len() > valid {
@@ -63,10 +63,7 @@ struct Machine {
 
 impl Machine {
     fn run(&mut self, mem: &[u8]) -> Interrupt {
-        loop {
-            let Some((opcode, operand)) = self.read_instruction(mem) else {
-                return Interrupt::Halt;
-            };
+        while let Some((opcode, operand)) = self.read_instruction(mem) {
             let combo = self.combo(operand);
 
             match opcode & 7 {
@@ -85,6 +82,8 @@ impl Machine {
                 _ => unreachable!(),
             }
         }
+
+        Interrupt::Halt
     }
 
     fn combo(&self, n: u8) -> u64 {
@@ -112,6 +111,12 @@ impl Machine {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+enum Interrupt {
+    Halt,
+    Output(u8),
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Search(u64, usize);
 
@@ -130,33 +135,23 @@ impl std::cmp::PartialOrd for Search {
     }
 }
 
-fn parse(input: &str) -> (Machine, Vec<u8>) {
-    let mut program = Vec::new();
-    let mut a = 0;
-    let mut b = 0;
-    let mut c = 0;
-
-    for line in input.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if let Some(s) = take_token("Register A: ", line) {
-            a = s.parse().unwrap();
-        } else if let Some(s) = take_token("Register B: ", line) {
-            b = s.parse().unwrap();
-        } else if let Some(s) = take_token("Register C: ", line) {
-            c = s.parse().unwrap();
-        } else if let Some(s) = take_token("Program: ", line) {
-            let ops = s.split(",").map(|n| n.parse::<u8>().unwrap());
-            program.extend(ops);
-        }
-    }
+fn parse(input: &str) -> Option<(Machine, Vec<u8>)> {
+    let mut lines = input.lines();
+    let a = take_token("Register A: ", lines.next()?)?.parse().ok()?;
+    let b = take_token("Register B: ", lines.next()?)?.parse().ok()?;
+    let c = take_token("Register C: ", lines.next()?)?.parse().ok()?;
+    let _ = lines.next()?;
+    let program = take_token("Program: ", lines.next()?)?
+        .as_bytes()
+        .iter()
+        .copied()
+        .filter(|&b| b != b',')
+        .map(|b| b - b'0')
+        .collect();
 
     let machine = Machine { a, b, c, pc: 0 };
 
-    (machine, program)
+    Some((machine, program))
 }
 
 fn take_token<'a>(token: &str, s: &'a str) -> Option<&'a str> {
@@ -165,12 +160,6 @@ fn take_token<'a>(token: &str, s: &'a str) -> Option<&'a str> {
     } else {
         None
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum Interrupt {
-    Halt,
-    Output(u8),
 }
 
 #[test]
