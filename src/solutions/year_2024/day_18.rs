@@ -1,8 +1,8 @@
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::HashSet;
 
-pub fn part_one(input: &str) -> u64 {
+pub fn part_one(input: &str) -> u32 {
     solve_part_one::<1024, 71, 71>(input)
 }
 
@@ -10,12 +10,12 @@ pub fn part_two(input: &str) -> String {
     solve_part_two::<1024, 71, 71>(input)
 }
 
-fn solve_part_one<const BYTES: usize, const WIDTH: usize, const HEIGHT: usize>(input: &str) -> u64 {
+fn solve_part_one<const BYTES: u32, const WIDTH: usize, const HEIGHT: usize>(input: &str) -> u32 {
     let mut map = Map::<WIDTH, HEIGHT>::new(input, BYTES);
     map.part_one().unwrap_or(0)
 }
 
-fn solve_part_two<const BYTES: usize, const WIDTH: usize, const HEIGHT: usize>(
+fn solve_part_two<const BYTES: u32, const WIDTH: usize, const HEIGHT: usize>(
     input: &str,
 ) -> String {
     let mut map = Map::<WIDTH, HEIGHT>::new(input, BYTES);
@@ -25,15 +25,15 @@ fn solve_part_two<const BYTES: usize, const WIDTH: usize, const HEIGHT: usize>(
 }
 
 struct Map<const WIDTH: usize, const HEIGHT: usize> {
-    walls: Vec<usize>,
-    cutoff: usize,
-    max_cutoff: usize,
+    walls: Vec<u32>,
+    cutoff: u32,
+    max_cutoff: u32,
     end: (i32, i32),
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
-    fn new(input: &str, cutoff: usize) -> Self {
-        let mut walls = vec![usize::MAX; WIDTH * HEIGHT];
+    fn new(input: &str, cutoff: u32) -> Self {
+        let mut walls = vec![u32::MAX; WIDTH * HEIGHT];
         let mut max_cutoff = 0;
         let end = ((WIDTH - 1) as i32, (HEIGHT - 1) as i32);
 
@@ -46,8 +46,8 @@ impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
 
         for (id, (x, y)) in bytes {
             let ind = y * WIDTH + x;
-            walls[ind] = id;
-            max_cutoff = id;
+            walls[ind] = id as u32;
+            max_cutoff = id as u32;
         }
 
         Self {
@@ -71,7 +71,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
         self.walls.get(ind).copied().map(|n| n < self.cutoff)
     }
 
-    fn find(&self, cutoff: usize) -> Option<(usize, usize)> {
+    fn find(&self, cutoff: u32) -> Option<(usize, usize)> {
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let ind = y * WIDTH + x;
@@ -85,7 +85,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
         None
     }
 
-    fn search(&self, heap: &mut SearchHeap, visited: &mut HashSet<(i32, i32)>) -> Option<u64> {
+    fn search(&self, heap: &mut SearchHeap, visited: &mut HashSet<(i32, i32)>) -> Option<u32> {
         visited.clear();
         heap.clear();
         heap.push((0, (0, 0)));
@@ -112,7 +112,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
         None
     }
 
-    fn part_one(&mut self) -> Option<u64> {
+    fn part_one(&mut self) -> Option<u32> {
         let mut visited = HashSet::new();
         let mut heap = SearchHeap::new(self.end);
 
@@ -145,7 +145,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Map<WIDTH, HEIGHT> {
 }
 
 struct SearchHeap {
-    heap: BinaryHeap<Reverse<(u64, u64, (i32, i32))>>,
+    heap: BinaryHeap<Search>,
     end: (i32, i32),
 }
 
@@ -161,26 +161,58 @@ impl SearchHeap {
         self.heap.clear()
     }
 
-    fn pop(&mut self) -> Option<(u64, (i32, i32))> {
-        self.heap.pop().map(|Reverse((_, c, p))| (c, p))
-    }
-
-    fn push(&mut self, (cost, point): (u64, (i32, i32))) {
+    fn pop(&mut self) -> Option<(u32, (i32, i32))> {
         self.heap
-            .push(Reverse((distance(point, self.end) + cost, cost, point)))
+            .pop()
+            .map(|Search { cost, point, .. }| (cost, point))
     }
 
-    fn extend<I: IntoIterator<Item = (u64, (i32, i32))>>(&mut self, iter: I) {
-        let iter = iter
-            .into_iter()
-            .map(|(c, p)| (distance(p, self.end) + c, c, p))
-            .map(Reverse);
+    fn push(&mut self, item: (u32, (i32, i32))) {
+        self.extend(Some(item))
+    }
+
+    fn extend<I: IntoIterator<Item = (u32, (i32, i32))>>(&mut self, iter: I) {
+        let iter = iter.into_iter().map(|(cost, point)| Search {
+            distance: distance(point, self.end),
+            cost,
+            point,
+        });
         self.heap.extend(iter)
     }
 }
 
-fn distance((x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> u64 {
-    x1.abs_diff(x2) as u64 + y1.abs_diff(y2) as u64
+fn distance((x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> u32 {
+    x1.abs_diff(x2) + y1.abs_diff(y2)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct Search {
+    distance: u32,
+    cost: u32,
+    point: (i32, i32),
+}
+
+impl Search {
+    fn estimate(&self) -> u32 {
+        self.cost + self.distance
+    }
+}
+
+impl std::cmp::Ord for Search {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let ord = match self.estimate().cmp(&other.estimate()) {
+            std::cmp::Ordering::Equal => self.distance.cmp(&other.distance),
+            c => c,
+        };
+
+        ord.reverse()
+    }
+}
+
+impl std::cmp::PartialOrd for Search {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
