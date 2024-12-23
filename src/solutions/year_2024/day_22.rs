@@ -29,7 +29,6 @@ pub fn part_two(input: &str) -> u32 {
     total_counts.into_values().max().unwrap_or(0)
 }
 
-#[derive(Debug, Clone)]
 struct SecretIter {
     secret: u64,
 }
@@ -85,10 +84,9 @@ impl Iterator for DiffIter {
 
         self.code <<= 8;
         self.code |= (diff as u32) & 0xff;
-        self.code &= 0xff_ff_ff_ff;
-        self.count += 1;
 
-        let code = if self.count < 4 {
+        let code = if self.count < 3 {
+            self.count += 1;
             None
         } else {
             Some(self.code)

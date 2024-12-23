@@ -22,6 +22,7 @@ mod day_19;
 mod day_20;
 //mod day_21;
 mod day_22;
+mod day_23;
 
 pub fn days() -> SolutionCollection {
     SolutionCollection::new()
@@ -47,4 +48,5 @@ pub fn days() -> SolutionCollection {
         .add(20, day_20::part_one, day_20::part_two)
         //.add(21, day_21::part_one, day_21::part_two)
         .add(22, day_22::part_one, day_22::part_two)
+        .add(23, day_23::part_one, day_23::part_two)
 }
