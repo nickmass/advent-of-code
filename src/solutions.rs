@@ -4,6 +4,7 @@ mod year_2021;
 mod year_2022;
 mod year_2023;
 mod year_2024;
+mod year_2025;
 
 pub use year_2019::days as days_2019;
 pub use year_2020::days as days_2020;
@@ -11,6 +12,7 @@ pub use year_2021::days as days_2021;
 pub use year_2022::days as days_2022;
 pub use year_2023::days as days_2023;
 pub use year_2024::days as days_2024;
+pub use year_2025::days as days_2025;
 
 pub type SolutionFunc = Box<dyn Fn(&str) -> Box<dyn std::fmt::Display>>;
 

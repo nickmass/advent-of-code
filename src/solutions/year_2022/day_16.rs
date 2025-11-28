@@ -284,7 +284,7 @@ impl<'a> Walker<'a> {
         }
     }
 
-    fn node(&self) -> &'a Node {
+    fn node(&self) -> &Node<'a> {
         self.graph.nodes.get(self.current).unwrap()
     }
 }

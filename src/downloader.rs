@@ -1,6 +1,6 @@
 use crate::Input;
 
-const USER_AGENT: &str = "aoc-submission-nickmass";
+const USER_AGENT: &str = "aoc-submission-github/nickmass";
 
 pub struct InputDownloader {
     input: Input,
@@ -31,13 +31,13 @@ impl InputDownloader {
         if let Some(input) = self.input.read(event, day)? {
             Ok(input)
         } else {
-            eprintln!("downloading {} day {}.", event, day);
+            eprintln!("downloading {event} day {day}.");
             let session_key = self
                 .session_key
                 .as_ref()
                 .ok_or("file '.session-key' not found")?;
-            let url = format!("https://adventofcode.com/{}/day/{}/input", event, day);
-            let auth = format!("session={}", session_key);
+            let url = format!("https://adventofcode.com/{event}/day/{day}/input");
+            let auth = format!("session={session_key}");
             let res = self.http_client.get(&url).set("cookie", &auth).call()?;
 
             let input = res.into_string()?;
@@ -45,7 +45,7 @@ impl InputDownloader {
 
             eprintln!("Sample input:");
             for line in input.lines().take(10) {
-                eprintln!("{}", line);
+                eprintln!("{line}");
             }
 
             Ok(input)
@@ -64,8 +64,8 @@ impl InputDownloader {
             .as_ref()
             .ok_or("file '.session-key' not found")?;
 
-        let url = format!("https://adventofcode.com/{}/day/{}/answer", event, day);
-        let auth = format!("session={}", session_key);
+        let url = format!("https://adventofcode.com/{event}/day/{day}/answer");
+        let auth = format!("session={session_key}");
         let res = self
             .http_client
             .post(&url)
@@ -79,7 +79,7 @@ impl InputDownloader {
                 output = true;
             }
             if output {
-                eprintln!("{}", line);
+                eprintln!("{line}");
             }
             if line.contains("</article>") {
                 output = false;

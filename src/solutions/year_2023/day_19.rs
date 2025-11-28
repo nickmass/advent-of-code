@@ -90,7 +90,7 @@ impl<'a> WorkflowMap<'a> {
         WorkflowMap { workflows, rules }
     }
 
-    fn get(&self, workflow: &str) -> impl Iterator<Item = Rule> + '_ {
+    fn get(&self, workflow: &str) -> impl Iterator<Item = Rule<'_>> + '_ {
         let workflow = self.workflows.get(workflow).copied();
         let mut i = 0;
 

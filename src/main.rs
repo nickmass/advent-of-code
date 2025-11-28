@@ -12,7 +12,7 @@ mod profiler;
 use downloader::InputDownloader;
 pub use profiler::{Metrics, Profiler};
 
-const DEFAULT_EVENT: u32 = 2024;
+const DEFAULT_EVENT: u32 = 2025;
 
 enum EventSelection {
     Specific(u32),
@@ -27,6 +27,7 @@ fn main() {
         (2022, solutions::days_2022()),
         (2023, solutions::days_2023()),
         (2024, solutions::days_2024()),
+        (2025, solutions::days_2025()),
     ]
     .into_iter()
     .collect();

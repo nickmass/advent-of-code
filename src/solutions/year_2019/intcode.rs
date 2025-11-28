@@ -126,6 +126,7 @@ impl<W: Word> Memory<W> for VecMem<W> {
     }
 }
 
+#[allow(unused)]
 pub struct MapMem<W: Word> {
     capacity: usize,
     mem: HashMap<usize, W>,

@@ -49,7 +49,7 @@ enum Monkey<'a> {
 }
 
 impl<'a> Monkey<'a> {
-    fn parse(line: &'a str, part_2: bool) -> Option<(&str, Self)> {
+    fn parse(line: &'a str, part_2: bool) -> Option<(&'a str, Self)> {
         let (name, line) = line.split_once(": ")?;
 
         let eq = line

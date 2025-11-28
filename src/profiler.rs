@@ -12,9 +12,9 @@ pub use linux::Profiler;
 
 #[cfg(all(target_os = "linux", not(feature = "basic_profiler")))]
 mod linux {
-    use perf_event::{events, Builder, Counter, Group};
+    use perf_event::{Builder, Counter, Group, events};
 
-    use super::{Duration, Metrics, GLOBAL};
+    use super::{Duration, GLOBAL, Metrics};
 
     #[derive(Debug)]
     pub struct Profiler {
@@ -80,7 +80,7 @@ mod linux {
 
 #[cfg(any(not(target_os = "linux"), feature = "basic_profiler"))]
 mod fallback {
-    use super::{Metrics, GLOBAL};
+    use super::{GLOBAL, Metrics};
 
     use std::time::Instant;
 
@@ -126,7 +126,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn display(&self, detailed: bool) -> MetricsDisplay {
+    pub fn display(&self, detailed: bool) -> MetricsDisplay<'_> {
         MetricsDisplay(detailed, self)
     }
 }
@@ -232,7 +232,7 @@ impl CountingAlloc {
 unsafe impl GlobalAlloc for CountingAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.allocations.fetch_add(1, Ordering::Relaxed);
-        let ret = System.alloc(layout);
+        let ret = unsafe { System.alloc(layout) };
 
         if !ret.is_null() {
             let size = layout.size();
@@ -252,12 +252,12 @@ unsafe impl GlobalAlloc for CountingAlloc {
             .load(Ordering::Relaxed)
             .saturating_sub(size);
         self.current_mem.store(current, Ordering::Relaxed);
-        System.dealloc(ptr, layout)
+        unsafe { System.dealloc(ptr, layout) }
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         self.allocations.fetch_add(1, Ordering::Relaxed);
-        let ret = System.alloc_zeroed(layout);
+        let ret = unsafe { System.alloc_zeroed(layout) };
 
         if !ret.is_null() {
             let size = layout.size();
@@ -273,7 +273,7 @@ unsafe impl GlobalAlloc for CountingAlloc {
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         self.allocations.fetch_add(1, Ordering::Relaxed);
 
-        let ret = System.realloc(ptr, layout, new_size);
+        let ret = unsafe { System.realloc(ptr, layout, new_size) };
 
         if !ret.is_null() {
             let size = layout.size();
