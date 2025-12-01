@@ -14,7 +14,10 @@ impl InputDownloader {
             .ok()
             .map(|s| s.trim().to_string());
 
-        let http_client = ureq::builder().user_agent(USER_AGENT).build();
+        let http_client = ureq::Agent::config_builder()
+            .user_agent(USER_AGENT)
+            .build()
+            .into();
 
         Self {
             input: Input::new(),
@@ -38,9 +41,10 @@ impl InputDownloader {
                 .ok_or("file '.session-key' not found")?;
             let url = format!("https://adventofcode.com/{event}/day/{day}/input");
             let auth = format!("session={session_key}");
-            let res = self.http_client.get(&url).set("cookie", &auth).call()?;
 
-            let input = res.into_string()?;
+            let res = self.http_client.get(&url).header("cookie", &auth).call()?;
+            let input = res.into_body().read_to_string()?;
+
             self.input.save(event, day, &input)?;
 
             eprintln!("Sample input:");
@@ -66,12 +70,14 @@ impl InputDownloader {
 
         let url = format!("https://adventofcode.com/{event}/day/{day}/answer");
         let auth = format!("session={session_key}");
+        let part = part.to_string();
+
         let res = self
             .http_client
             .post(&url)
-            .set("cookie", &auth)
-            .send_form(&[("level", &part.to_string()), ("answer", answer.as_ref())])?;
-        let text = res.into_string()?;
+            .header("cookie", &auth)
+            .send_form([("level", part.as_ref()), ("answer", answer.as_ref())])?;
+        let text = res.into_body().read_to_string()?;
 
         let mut output = false;
         for line in text.lines() {
