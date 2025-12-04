@@ -77,19 +77,28 @@ impl Grid {
     }
 
     fn part_two(mut self) -> usize {
+        let mut removed = Vec::new();
         let mut total = 0;
-        let mut changed = true;
 
-        while changed {
-            changed = false;
-            for p in Point::grid_iter(self.width, self.height) {
+        for p in Point::grid_iter(self.width, self.height) {
+            if self.can_forklift(p) {
+                total += 1;
+                self.remove(p);
+                removed.push(p);
+            }
+        }
+
+        while let Some(p) = removed.pop() {
+            for p in p.neighbors() {
                 if self.can_forklift(p) {
                     total += 1;
                     self.remove(p);
-                    changed = true;
+                    removed.push(p);
                 }
+
             }
         }
+
         total
     }
 }
