@@ -1,49 +1,47 @@
+use std::cmp::Ordering;
+
 pub fn part_one(input: &str) -> usize {
     let (ranges, items) = input.split_once("\n\n").expect("valid input");
-    let ranges = compact_ranges(ranges);
+    let ranges = OrderedRanges::new(ranges);
 
-    return items
+    items
         .lines()
         .filter_map(|l| l.parse::<u64>().ok())
-        .filter(|i| ranges.iter().any(|r| r.contains(*i)))
-        .count();
+        .filter(|&i| ranges.contains(i))
+        .count()
 }
 
 pub fn part_two(input: &str) -> u64 {
     let (ranges, _items) = input.split_once("\n\n").expect("valid input");
-    let ranges = compact_ranges(ranges);
+    let ranges = compact_and_sort_ranges(ranges);
 
     ranges.iter().map(|r| r.len()).sum()
 }
 
-fn compact_ranges(range_input: &str) -> Vec<Range> {
+fn compact_and_sort_ranges(range_input: &str) -> Vec<Range> {
     let mut ranges: Vec<_> = range_input.lines().filter_map(Range::parse).collect();
-    let mut compacted_ranges = Vec::with_capacity(ranges.len());
-    let mut pending_ranges = Vec::with_capacity(ranges.len());
+    ranges.sort_unstable_by(|a, b| a.cmp(b).reverse());
 
-    let mut done = false;
-    while !done {
-        done = true;
-        while let Some(mut next) = ranges.pop() {
-            for r in ranges.drain(..) {
-                if let Some(compacted) = next.compact(&r) {
-                    next = compacted;
-                    done = false;
-                } else {
-                    pending_ranges.push(r);
-                }
-            }
+    let mut results = Vec::new();
 
-            compacted_ranges.push(next);
-            std::mem::swap(&mut ranges, &mut pending_ranges);
+    let Some(mut next) = ranges.pop() else {
+        return Vec::new();
+    };
+
+    while let Some(other) = ranges.pop() {
+        if let Some(compacted) = next.compact(&other) {
+            next = compacted;
+        } else {
+            results.push(next);
+            next = other;
         }
-        std::mem::swap(&mut ranges, &mut compacted_ranges);
     }
+    results.push(next);
 
-    ranges
+    results
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Range {
     start: u64,
     end: u64,
@@ -58,8 +56,14 @@ impl Range {
         Some(Range { start, end })
     }
 
-    fn contains(&self, item: u64) -> bool {
-        item >= self.start && item <= self.end
+    fn compare(&self, item: u64) -> Ordering {
+        if self.start > item {
+            Ordering::Greater
+        } else if self.end < item {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
     }
 
     fn len(&self) -> u64 {
@@ -67,17 +71,33 @@ impl Range {
     }
 
     fn compact(&self, other: &Range) -> Option<Range> {
-        if self.start <= other.end && other.start <= self.end
-            || self.end + 1 == other.start
-            || other.end + 1 == self.start
-        {
+        debug_assert!(self <= other);
+        if self.start <= other.end && other.start <= self.end + 1 {
             Some(Range {
-                start: self.start.min(other.start),
+                start: self.start,
                 end: self.end.max(other.end),
             })
         } else {
             None
         }
+    }
+}
+
+struct OrderedRanges {
+    ranges: Vec<Range>,
+}
+
+impl OrderedRanges {
+    fn new(range_input: &str) -> Self {
+        Self {
+            ranges: compact_and_sort_ranges(range_input),
+        }
+    }
+
+    fn contains(&self, item: u64) -> bool {
+        self.ranges
+            .binary_search_by(|range| range.compare(item))
+            .is_ok()
     }
 }
 
