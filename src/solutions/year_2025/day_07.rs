@@ -19,7 +19,6 @@ struct GameGrid {
     cells: Vec<Cell>,
     width: usize,
     height: usize,
-    splits: u64,
     start: Point,
 }
 
@@ -59,7 +58,6 @@ impl GameGrid {
             width,
             height,
             start,
-            splits: 0,
         }
     }
 
@@ -68,57 +66,39 @@ impl GameGrid {
         self.cells.get(idx).copied()
     }
 
-    fn set(&mut self, p: Point, cell: Cell) -> bool {
+    fn set(&mut self, p: Point, cell: Cell) {
         let Some(idx) = p.idx(self.width, self.height) else {
-            return false;
+            return;
         };
         let Some(slot) = self.cells.get_mut(idx) else {
-            return false;
+            return;
         };
 
         *slot = cell;
-        true
-    }
-
-    fn activate(&mut self, p: Point) -> bool {
-        match self.get(p) {
-            Some(Cell::Empty) => self.set(p, Cell::Beam),
-            Some(Cell::Split) => {
-                self.splits += 1;
-                self.set(p, Cell::Wall)
-                    | self.set(p + Point(-1, 0), Cell::Beam)
-                    | self.set(p + Point(1, 0), Cell::Beam)
-            }
-            _ => return false,
-        }
     }
 
     fn part_one(&mut self) -> u64 {
-        let mut progress = true;
-        let mut min_y = 0;
-
-        while progress {
-            progress = false;
-            let mut next_y = self.height;
-            for y in (min_y..self.height).rev() {
-                for x in 0..self.width {
-                    let point = Point(x as i32, y as i32);
-                    let changed = match self.get(point) {
-                        Some(Cell::Beam) | Some(Cell::Start) => self.activate(point + Point(0, 1)),
-                        _ => false,
-                    };
-
-                    if changed {
-                        next_y = y;
+        let mut splits = 0;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let point = Point(x as i32, y as i32);
+                if matches!(self.get(point), Some(Cell::Beam) | Some(Cell::Start)) {
+                    let destination = point + Point(0, 1);
+                    match self.get(destination) {
+                        Some(Cell::Split) => {
+                            self.set(destination, Cell::Wall);
+                            self.set(destination + Point(-1, 0), Cell::Beam);
+                            self.set(destination + Point(1, 0), Cell::Beam);
+                            splits += 1;
+                        }
+                        Some(Cell::Empty) => self.set(destination, Cell::Beam),
+                        _ => (),
                     }
-
-                    progress |= changed;
                 }
             }
-            min_y = next_y;
         }
 
-        self.splits
+        splits
     }
 
     fn part_two(&mut self) -> u64 {
