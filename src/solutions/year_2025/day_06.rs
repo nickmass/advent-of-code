@@ -62,10 +62,8 @@ impl Operation {
     }
 
     fn total(&self) -> u64 {
-        match self {
-            Operation::Add(x) => x.unwrap_or(0),
-            Operation::Mul(x) => x.unwrap_or(0),
-        }
+        let (Operation::Add(total) | Operation::Mul(total)) = self;
+        total.unwrap_or(0)
     }
 }
 
