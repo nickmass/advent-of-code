@@ -1,27 +1,29 @@
-use std::fmt::Write;
-
 pub fn part_one(input: &str) -> u64 {
     let items = parse_input(input);
 
-    let mut buf = String::new();
     let mut invalids = 0;
 
     for (start, end) in items {
-        for n in start..=end {
-            buf.clear();
-            let _ = write!(buf, "{}", n);
-
-            let len = buf.len();
+        let mut n = start;
+        while n <= end {
+            let len = n.ilog10() + 1;
 
             if len & 1 == 1 {
+                n = 10u64.pow(len);
                 continue;
             }
 
-            let len = len >> 1;
+            let half_len = (len >> 1) as usize;
 
-            if buf[0..len] == buf[len..] {
+            if digit_iter(n)
+                .take(half_len)
+                .zip(digit_iter(n).skip(half_len))
+                .all(|(a, b)| a == b)
+            {
                 invalids += n;
             }
+
+            n += 1;
         }
     }
 
@@ -31,28 +33,22 @@ pub fn part_one(input: &str) -> u64 {
 pub fn part_two(input: &str) -> u64 {
     let items = parse_input(input);
 
-    let mut buf = String::new();
     let mut invalids = 0;
 
     for (start, end) in items {
         for n in start..=end {
-            buf.clear();
-            let _ = write!(buf, "{}", n);
+            let len = (n.ilog10() + 1) as usize;
 
-            let len = buf.len();
-
-            'outer: for sub_len in 1..=(len / 2) {
+            for sub_len in 1..=(len / 2) {
                 if len % sub_len != 0 {
                     continue;
                 }
 
-                let check = &buf[0..sub_len];
+                let check = digit_iter(n).take(sub_len).cycle();
+                let test = digit_iter(n).skip(sub_len);
 
-                for offset in (sub_len..len).step_by(sub_len) {
-                    let test = &buf[offset..(offset + sub_len)];
-                    if check != test {
-                        continue 'outer;
-                    }
+                if check.zip(test).any(|(a, b)| a != b) {
+                    continue;
                 }
 
                 invalids += n;
@@ -70,6 +66,18 @@ fn parse_input(input: &str) -> impl Iterator<Item = (u64, u64)> {
         .split(',')
         .filter_map(|i| i.split_once('-'))
         .filter_map(|(s, e)| s.parse::<u64>().ok().zip(e.parse::<u64>().ok()))
+}
+
+fn digit_iter(mut num: u64) -> impl Iterator<Item = u64> + Clone {
+    std::iter::from_fn(move || {
+        if num == 0 {
+            None
+        } else {
+            let v = num % 10;
+            num /= 10;
+            Some(v)
+        }
+    })
 }
 
 #[test]
