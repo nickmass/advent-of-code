@@ -1,11 +1,18 @@
+use std::{
+    cell::Cell,
+    time::{Duration, Instant},
+};
+
 use crate::Input;
 
 const USER_AGENT: &str = "aoc-submission-github/nickmass";
+const REQUEST_DELAY: Duration = Duration::from_secs(15);
 
 pub struct InputDownloader {
     input: Input,
     session_key: Option<String>,
     http_client: ureq::Agent,
+    last_request_time: Cell<Option<Instant>>,
 }
 
 impl InputDownloader {
@@ -23,6 +30,7 @@ impl InputDownloader {
             input: Input::new(),
             session_key,
             http_client,
+            last_request_time: Cell::new(None),
         }
     }
 
@@ -34,6 +42,7 @@ impl InputDownloader {
         if let Some(input) = self.input.read(event, day)? {
             Ok(input)
         } else {
+            self.wait_if_needed();
             eprintln!("downloading {event} day {day}.");
             let session_key = self
                 .session_key
@@ -42,6 +51,7 @@ impl InputDownloader {
             let url = format!("https://adventofcode.com/{event}/day/{day}/input");
             let auth = format!("session={session_key}");
 
+            self.update_request_time();
             let res = self.http_client.get(&url).header("cookie", &auth).call()?;
             let input = res.into_body().read_to_string()?;
 
@@ -56,6 +66,26 @@ impl InputDownloader {
         }
     }
 
+    fn wait_if_needed(&self) {
+        if let Some(last_req) = self.last_request_time.get() {
+            let mut logged = false;
+            while last_req.elapsed() < REQUEST_DELAY {
+                if !logged {
+                    logged = true;
+                    let dur = REQUEST_DELAY
+                        .saturating_sub(last_req.elapsed())
+                        .max(Duration::from_secs(1));
+                    eprintln!("waiting {} seconds between requests...", dur.as_secs())
+                }
+                std::thread::sleep(Duration::from_secs(1));
+            }
+        }
+    }
+
+    fn update_request_time(&self) {
+        self.last_request_time.set(Some(Instant::now()));
+    }
+
     pub fn submit_answer<S: AsRef<str>>(
         &self,
         answer: S,
@@ -63,6 +93,7 @@ impl InputDownloader {
         day: u32,
         part: u32,
     ) -> Result<bool, Box<dyn std::error::Error>> {
+        self.wait_if_needed();
         let session_key = self
             .session_key
             .as_ref()
@@ -72,6 +103,7 @@ impl InputDownloader {
         let auth = format!("session={session_key}");
         let part = part.to_string();
 
+        self.update_request_time();
         let res = self
             .http_client
             .post(&url)
