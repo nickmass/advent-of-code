@@ -4,8 +4,8 @@ use crate::HashSet;
 
 pub fn part_one(input: &str) -> u32 {
     let mut machine = Machine::new();
-    let mut sum = 0;
     let mut search_stack = BfsStack::new();
+    let mut sum = 0;
 
     for l in input.trim().lines() {
         machine = machine.parse(l).expect("parse machine");
@@ -49,8 +49,8 @@ impl Machine {
     fn part_one(&self, stack: &mut BfsStack<Lights>) -> u32 {
         stack.reset();
 
-        let lights = self.lights.create_default();
-        if self.lights.is_match(&lights) {
+        let lights = Lights::new();
+        if self.lights == lights {
             return 0;
         }
 
@@ -59,7 +59,7 @@ impl Machine {
             let count = count + 1;
             for b in self.buttons.iter() {
                 let lights = lights.toggle(b);
-                if self.lights.is_match(&lights) {
+                if self.lights == lights {
                     return count;
                 } else {
                     stack.push((lights, count));
@@ -107,12 +107,11 @@ impl<T: Eq + Hash + Clone> BfsStack<T> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Lights {
     state: u32,
-    len: u8,
 }
 
 impl Lights {
     fn new() -> Self {
-        Self { state: 0, len: 0 }
+        Self { state: 0 }
     }
 
     fn parse(line: &mut &[u8]) -> Option<Self> {
@@ -144,34 +143,12 @@ impl Lights {
             rev_state >>= 1;
         }
 
-        Some(Lights { state, len })
-    }
-
-    fn is_match(&self, other: &Self) -> bool {
-        self.state == other.state && self.len == other.len
-    }
-
-    fn create_default(&self) -> Self {
-        Lights {
-            state: 0,
-            len: self.len,
-        }
+        Some(Lights { state })
     }
 
     fn toggle(&self, button: &Button) -> Self {
-        let mut state = self.state;
-        let mut mask = 1;
-
-        for _ in 0..self.len {
-            if button.0 & mask != 0 {
-                state ^= mask;
-            }
-            mask <<= 1;
-        }
-
         Lights {
-            state,
-            len: self.len,
+            state: self.state ^ button.0,
         }
     }
 }
@@ -216,13 +193,16 @@ impl Voltages {
     }
 
     fn parse(line: &[u8]) -> Option<Self> {
+        let mut items = [0; 10];
+        let mut idx = 0;
         let mut value = 0;
-        let mut state = SmallVec::<10, _>::new();
+
         for &b in line {
             match b {
                 b' ' | b'{' => (),
                 b'}' => {
-                    state.push(value);
+                    items[idx] = value;
+                    idx += 1;
                     break;
                 }
                 b'0'..=b'9' => {
@@ -231,43 +211,18 @@ impl Voltages {
                     value += n;
                 }
                 b',' => {
-                    state.push(value);
+                    items[idx] = value;
+                    idx += 1;
                     value = 0;
                 }
                 _ => return None,
             }
         }
 
-        let mut items = [0; 10];
-        for (a, b) in state.items.iter().zip(items.iter_mut()) {
-            *b = a.unwrap_or(0);
-        }
-
         Some(Self {
             items,
-            len: state.len,
+            len: idx as u8,
         })
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct SmallVec<const N: usize, T> {
-    items: [Option<T>; N],
-    len: u8,
-}
-
-impl<const N: usize, T: Copy> SmallVec<N, T> {
-    fn new() -> Self {
-        Self {
-            items: [None; N],
-            len: 0,
-        }
-    }
-
-    fn push(&mut self, item: T) {
-        assert!((self.len as usize) < N);
-        self.items[self.len as usize] = Some(item);
-        self.len += 1;
     }
 }
 
