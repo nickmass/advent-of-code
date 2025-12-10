@@ -91,8 +91,8 @@ impl Hailstone {
     }
 }
 
-pub fn part_two(_input: &str) -> u64 {
-    0
+pub fn part_two(_input: &str) -> &'static str {
+    "incomplete"
 }
 
 #[test]
