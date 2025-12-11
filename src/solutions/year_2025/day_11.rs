@@ -1,4 +1,4 @@
-use crate::HashMap;
+use crate::{HashMap, HashSet};
 
 pub fn part_one(input: &str) -> u64 {
     let graph = Graph::new(input).expect("could not parse");
@@ -8,13 +8,6 @@ pub fn part_one(input: &str) -> u64 {
 pub fn part_two(input: &str) -> u64 {
     let graph = Graph::new(input).expect("could not parse");
     graph.count_map()
-}
-
-#[allow(unused)]
-fn part_two_no_cheats(input: &str) -> u64 {
-    // I "cheated" in my solution by tailoring it to the choke points in my specific input
-    let graph = Graph::new(input).expect("could not parse");
-    graph.count_checkpoint_routes(Node("svr"), [Node("dac"), Node("fft")], Node("out"))
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -72,7 +65,7 @@ impl<'a> Graph<'a> {
         start: Node<'_>,
         target: Node<'_>,
         all_targets: &[Node<'_>],
-        bail: Option<&[Node<'_>]>,
+        bail: Option<&[Vec<Node<'_>>]>,
     ) -> u64 {
         let mut stack = Vec::new();
         stack.push(start);
@@ -95,7 +88,11 @@ impl<'a> Graph<'a> {
                     if all_targets.contains(connection) {
                         continue;
                     }
-                    if bail.map(|b| b.contains(connection)).unwrap_or(false) {
+
+                    if bail
+                        .map(|s| s.iter().any(|v| v.contains(connection)))
+                        .unwrap_or(false)
+                    {
                         continue;
                     }
 
@@ -107,50 +104,18 @@ impl<'a> Graph<'a> {
         count
     }
 
-    fn count_checkpoint_routes(
-        &self,
-        start: Node<'_>,
-        [check0, check1]: [Node<'a>; 2],
-        target: Node<'_>,
-    ) -> u64 {
-        let a = self.count_path(start, check0, check1, target);
-        let b = self.count_path(start, check1, check0, target);
-
-        a + b
-    }
-
-    fn count_path(
-        &self,
-        start: Node<'a>,
-        check0: Node<'a>,
-        check1: Node<'a>,
-        target: Node<'a>,
-    ) -> u64 {
-        let b = self.count_routes(check0, check1);
-
-        if b == 0 {
-            return 0;
-        }
-
-        let a = self.count_routes(start, check0);
-
-        if a == 0 {
-            return 0;
-        }
-
-        let c = self.count_routes(check1, target);
-
-        a * b * c
-    }
-
     fn count_map(&self) -> u64 {
-        let map = Self::map();
+        let map = self.create_map(
+            Node("svr"),
+            &[Node("svr"), Node("dac"), Node("fft"), Node("out")],
+        );
+
         let mut counts = HashMap::new();
         counts.insert(Node("svr"), 1);
         for i in 0..map.len() - 1 {
-            let starts = map[i];
-            let targets = map[i + 1];
-            let bail = map.get(i + 2).copied();
+            let starts = map[i].as_slice();
+            let targets = map[i + 1].as_slice();
+            let bail = map.get((i + 2)..);
 
             for &start in starts {
                 let prev_count = counts.get(&start).copied().unwrap_or(0);
@@ -164,20 +129,118 @@ impl<'a> Graph<'a> {
         counts.get(&Node("out")).copied().unwrap_or(0)
     }
 
-    #[rustfmt::skip]
-    fn map() -> &'static [&'static [Node<'static>]] {
-        // Created by plotting my input with graphviz, lists the sequence of "narrow" parts of the graph
-        &[
-            &[Node("svr")],
-            &[Node("muy"), Node("zyi"), Node("pzi")],
-            &[Node("fft")],
-            &[Node("kqn"), Node("vjh"), Node("vht"), Node("edr"), Node("ehw")],
-            &[Node("apc"), Node("lpz"), Node("rpn")],
-            &[Node("xct"), Node("cix"), Node("jvl"), Node("jyw"), Node("tql")],
-            &[Node("dac")],
-            &[Node("you"), Node("ire"), Node("sdo"), Node("qdo")],
-            &[Node("out")],
-        ]
+    fn topo_sort(
+        &self,
+        start: Node<'a>,
+        reverse_index: &HashMap<Node<'_>, Vec<Node<'_>>>,
+    ) -> Vec<Node<'a>> {
+        let mut sort = Vec::with_capacity(self.nodes.len());
+        let mut stack = Vec::new();
+
+        let mut visited_edge_count = HashMap::with_capacity(self.nodes.len());
+
+        stack.push(start);
+
+        while let Some(next) = stack.pop() {
+            sort.push(next);
+            if let Some((index, len)) = self.nodes.get(&next).copied() {
+                let connections = self.connections.iter().skip(index).take(len);
+                for child in connections {
+                    let entry = visited_edge_count.entry(child).or_insert(0);
+                    *entry += 1;
+
+                    let Some(inbound_len) = reverse_index.get(child).map(|l| l.len()) else {
+                        continue;
+                    };
+
+                    if *entry == inbound_len {
+                        stack.push(*child);
+                    }
+                }
+            }
+        }
+
+        sort
+    }
+
+    fn reverse_index(&self) -> HashMap<Node<'a>, Vec<Node<'a>>> {
+        let mut map = HashMap::with_capacity(self.nodes.len());
+
+        for (&node, &(index, len)) in self.nodes.iter() {
+            let connections = self.connections.iter().skip(index).take(len);
+            for &child in connections {
+                let entry = map.entry(child).or_insert(Vec::new());
+                entry.push(node);
+            }
+        }
+
+        map
+    }
+
+    fn create_map(&self, start: Node<'a>, pois: &[Node<'a>]) -> Vec<Vec<Node<'a>>> {
+        let reverse_index = self.reverse_index();
+        let topo = self.topo_sort(start, &reverse_index);
+
+        let mut depth_map = HashMap::with_capacity(self.nodes.len());
+        for node in topo {
+            let Some(parents) = reverse_index.get(&node) else {
+                depth_map.insert(node, 1);
+                continue;
+            };
+
+            let depth = parents
+                .iter()
+                .filter_map(|p| depth_map.get(p).copied())
+                .max()
+                .unwrap_or(0);
+            depth_map.insert(node, depth + 1);
+        }
+
+        let mut reverse_depth = HashMap::new();
+        for (node, depth) in depth_map {
+            let entry = reverse_depth.entry(depth).or_insert(HashSet::new());
+            entry.insert(node);
+        }
+
+        let mut reverse_depth = reverse_depth.into_iter().collect::<Vec<_>>();
+        reverse_depth.sort_unstable_by_key(|e| e.0);
+
+        let mut rough_map = Vec::new();
+        let pois: HashSet<_> = pois.iter().copied().collect();
+        'outer: for (depth, nodes) in reverse_depth {
+            for node in nodes.intersection(&pois) {
+                rough_map.push((depth, vec![*node]));
+                continue 'outer;
+            }
+
+            if nodes.len() <= 5 {
+                rough_map.push((depth, nodes.iter().copied().collect()));
+            }
+        }
+
+        let mut map = Vec::new();
+
+        let mut prev_depth: u32 = 0;
+        while let Some((depth, nodes)) = rough_map.pop() {
+            if nodes.len() == 1 {
+                if nodes.iter().all(|n| pois.contains(n)) {
+                    map.push(nodes);
+                    prev_depth = depth;
+                    continue;
+                }
+            }
+
+            if depth.abs_diff(prev_depth) == 1 {
+                prev_depth = depth;
+                continue;
+            }
+            prev_depth = depth;
+            map.push(nodes);
+        }
+
+        map.reverse();
+
+        map
     }
 }
 
@@ -212,5 +275,5 @@ ggg: out
 hhh: out
 "#;
 
-    assert_eq!(2, part_two_no_cheats(input));
+    assert_eq!(2, part_two(input));
 }
