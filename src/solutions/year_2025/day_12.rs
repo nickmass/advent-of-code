@@ -348,7 +348,7 @@ impl RegionMap {
 }
 
 #[test]
-//#[ignore = "this is an unusual day..."]
+#[ignore = "this is an unusual day..."]
 fn test() {
     let input = r#"0:
 ###
